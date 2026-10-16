@@ -5,6 +5,8 @@ description = "HireLens API: resume upload, parsing and scoring"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.143.2",
+    "pdfplumber>=0.11.10",
+    "python-docx>=1.2.0",
     "python-multipart>=0.0.32",
     "uvicorn[standard]>=0.54.0",
 ]
@@ -15,6 +17,7 @@ pythonpath = ["."]
 
 [dependency-groups]
 dev = [
+    "fpdf2>=2.8.9",
     "httpx2>=2.13.1",
     "pytest>=9.1.1",
 ]
