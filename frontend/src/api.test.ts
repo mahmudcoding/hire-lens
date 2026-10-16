@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { uploadResume } from './api.ts'
+import { getResumeText, uploadResume } from './api.ts'
 
 class FakeXhr {
   static last: FakeXhr
@@ -82,5 +82,41 @@ describe('uploadResume', () => {
     FakeXhr.last.onerror?.()
 
     await expect(result).rejects.toThrow("Couldn't reach the server.")
+  })
+})
+
+describe('getResumeText', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  function stubFetch(status: number, body: unknown) {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+
+  it("returns the resume's text", async () => {
+    const fetchMock = stubFetch(200, { id: 'abc', text: 'Jane Doe' })
+
+    await expect(getResumeText('abc')).resolves.toEqual({ id: 'abc', text: 'Jane Doe' })
+    expect(fetchMock).toHaveBeenCalledWith('/api/resumes/abc/text', { signal: undefined })
+  })
+
+  it("rejects with the server's explanation", async () => {
+    stubFetch(422, { detail: "We couldn't find any text in this PDF." })
+
+    await expect(getResumeText('abc')).rejects.toThrow("We couldn't find any text in this PDF.")
+  })
+
+  it('rejects with a connection message when the request fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+
+    await expect(getResumeText('abc')).rejects.toThrow("Couldn't reach the server.")
   })
 })

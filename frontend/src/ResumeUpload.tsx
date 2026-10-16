@@ -9,13 +9,19 @@ type UploadState =
   | { status: 'success'; resume: UploadedResume }
   | { status: 'error'; message: string }
 
-export function ResumeUpload() {
+type Props = {
+  /** Called with the stored resume after an upload, and with null when a new file is picked. */
+  onResumeChange: (resume: UploadedResume | null) => void
+}
+
+export function ResumeUpload({ onResumeChange }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [state, setState] = useState<UploadState>({ status: 'idle' })
   const [isDragging, setIsDragging] = useState(false)
   const isUploading = state.status === 'uploading'
 
   async function handleFile(file: File) {
+    onResumeChange(null)
     const problem = checkResumeFile(file)
     if (problem) {
       setState({ status: 'error', message: problem })
@@ -28,6 +34,7 @@ export function ResumeUpload() {
         setState({ status: 'uploading', fileName: file.name, progress })
       })
       setState({ status: 'success', resume })
+      onResumeChange(resume)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Upload failed. Please try again.'
       setState({ status: 'error', message })
@@ -103,12 +110,12 @@ export function ResumeUpload() {
         </div>
       )}
       {state.status === 'success' && (
-        <p className="upload-message is-success" role="status">
+        <p className="message is-success" role="status">
           {state.resume.filename} uploaded.
         </p>
       )}
       {state.status === 'error' && (
-        <p className="upload-message is-error" role="alert">
+        <p className="message is-error" role="alert">
           {state.message}
         </p>
       )}

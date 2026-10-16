@@ -33,6 +33,12 @@ The frontend forwards every `/api` request to the API, so open the frontend URL.
 | `npm run lint` | Lints the frontend |
 | `npm run build` | Builds the frontend for production |
 
+To check how many resumes in a folder HireLens can read (DP-18 asks for at least 90% of the test set), run this from `backend/`:
+
+```bash
+uv run python -m scripts.check_extraction /path/to/test-resumes
+```
+
 ## Project structure
 
 ```

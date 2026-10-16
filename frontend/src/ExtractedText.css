@@ -1,0 +1,31 @@
+.extracted {
+  margin-top: 32px;
+}
+
+.extracted h2 {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+}
+
+.extracted p {
+  margin: 0 0 12px;
+}
+
+.extracted-hint {
+  color: var(--muted);
+}
+
+.extracted-text {
+  margin: 0;
+  max-height: 480px;
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
