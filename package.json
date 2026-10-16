@@ -1,0 +1,20 @@
+{
+  "name": "hire-lens",
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently --names api,web --prefix-colors blue,green --kill-others-on-fail npm:dev:api npm:dev:web",
+    "dev:api": "uv run --directory backend uvicorn app.main:app --reload --port 8000",
+    "dev:web": "npm run dev --workspace frontend",
+    "test": "npm run test:api && npm run test:web",
+    "test:api": "uv run --directory backend pytest",
+    "test:web": "npm test --workspace frontend",
+    "lint": "npm run lint --workspace frontend",
+    "build": "npm run build --workspace frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}

@@ -1,0 +1,62 @@
+:root {
+  --text: #1f2933;
+  --muted: #5f6b7a;
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --border: #d9dee5;
+  --accent: #2563eb;
+  --accent-soft: #e8efff;
+  --danger: #b42318;
+  --danger-soft: #fef3f2;
+  --success: #067647;
+  --success-soft: #ecfdf3;
+  --radius: 12px;
+
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #e6e9ee;
+    --muted: #a3acb9;
+    --bg: #111418;
+    --surface: #1a1e24;
+    --border: #2d333b;
+    --accent: #6ea8ff;
+    --accent-soft: #1b2a44;
+    --danger: #ff8a80;
+    --danger-soft: #3a1d1b;
+    --success: #6ce9a6;
+    --success-soft: #133325;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 16px;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.app-header p {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
