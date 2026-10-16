@@ -1,0 +1,20 @@
+[project]
+name = "hirelens-backend"
+version = "0.1.0"
+description = "HireLens API: resume upload, parsing and scoring"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.143.2",
+    "python-multipart>=0.0.32",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13.1",
+    "pytest>=9.1.1",
+]
