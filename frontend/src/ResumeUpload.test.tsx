@@ -6,6 +6,7 @@ import { ResumeUpload } from './ResumeUpload.tsx'
 
 vi.mock('./api.ts', () => ({ uploadResume: vi.fn() }))
 const mockedUpload = vi.mocked(uploadResume)
+const onResumeChange = vi.fn()
 
 const stored: UploadedResume = {
   id: 'abc',
@@ -21,6 +22,7 @@ function pdf(name = 'resume.pdf'): File {
 describe('ResumeUpload', () => {
   beforeEach(() => {
     mockedUpload.mockReset()
+    onResumeChange.mockReset()
   })
 
   it('shows progress while a chosen file uploads, then success', async () => {
@@ -32,7 +34,7 @@ describe('ResumeUpload', () => {
       })
     })
     const user = userEvent.setup()
-    render(<ResumeUpload />)
+    render(<ResumeUpload onResumeChange={onResumeChange} />)
 
     await user.upload(screen.getByLabelText('Resume file'), pdf())
 
@@ -47,11 +49,12 @@ describe('ResumeUpload', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('resume.pdf uploaded.')
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(onResumeChange).toHaveBeenLastCalledWith(stored)
   })
 
   it('rejects a file that is not a PDF or DOCX without uploading it', async () => {
     const user = userEvent.setup({ applyAccept: false })
-    render(<ResumeUpload />)
+    render(<ResumeUpload onResumeChange={onResumeChange} />)
 
     await user.upload(
       screen.getByLabelText('Resume file'),
@@ -60,11 +63,12 @@ describe('ResumeUpload', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent('Only PDF and DOCX files are supported.')
     expect(mockedUpload).not.toHaveBeenCalled()
+    expect(onResumeChange).toHaveBeenLastCalledWith(null)
   })
 
   it('rejects a file over 5 MB with a clear message', async () => {
     const user = userEvent.setup()
-    render(<ResumeUpload />)
+    render(<ResumeUpload onResumeChange={onResumeChange} />)
     const big = pdf('big.pdf')
     Object.defineProperty(big, 'size', { value: 5 * 1024 * 1024 + 1 })
 
@@ -77,7 +81,7 @@ describe('ResumeUpload', () => {
   it("shows the server's message when the upload fails", async () => {
     mockedUpload.mockRejectedValue(new Error('The file is empty.'))
     const user = userEvent.setup()
-    render(<ResumeUpload />)
+    render(<ResumeUpload onResumeChange={onResumeChange} />)
 
     await user.upload(screen.getByLabelText('Resume file'), pdf())
 
@@ -86,7 +90,7 @@ describe('ResumeUpload', () => {
 
   it('uploads a file dropped on the drop zone', async () => {
     mockedUpload.mockResolvedValue(stored)
-    render(<ResumeUpload />)
+    render(<ResumeUpload onResumeChange={onResumeChange} />)
     const file = pdf()
 
     fireEvent.drop(screen.getByTestId('dropzone'), { dataTransfer: { files: [file] } })
@@ -96,7 +100,7 @@ describe('ResumeUpload', () => {
   })
 
   it('highlights the drop zone while a file is dragged over it', () => {
-    render(<ResumeUpload />)
+    render(<ResumeUpload onResumeChange={onResumeChange} />)
     const dropzone = screen.getByTestId('dropzone')
 
     fireEvent.dragOver(dropzone)
