@@ -1,0 +1,7 @@
+{
+  "name": "hire-lens",
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ]
+}
