@@ -39,6 +39,12 @@ To check how many resumes in a folder HireLens can read (DP-18 asks for at least
 uv run python -m scripts.check_extraction /path/to/test-resumes
 ```
 
+To check which sections (contact, summary, experience, education, skills) HireLens finds in the same set (DP-20), run:
+
+```bash
+uv run python -m scripts.check_sections /path/to/test-resumes
+```
+
 ## Project structure
 
 ```
