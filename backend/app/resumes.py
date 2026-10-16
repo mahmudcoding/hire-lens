@@ -6,7 +6,8 @@ from pydantic import BaseModel
 from app.config import MAX_UPLOAD_BYTES
 from app.extraction import UnreadableResume, extract_text
 from app.file_types import UnsupportedFileType, detect_file_type
-from app.storage import ResumeNotFound, ResumeStorage, get_storage
+from app.sections import detect_sections
+from app.storage import ResumeNotFound, ResumeStorage, StoredResume, get_storage
 
 router = APIRouter(prefix="/api/resumes", tags=["resumes"])
 
@@ -21,6 +22,18 @@ class UploadedResume(BaseModel):
 class ResumeText(BaseModel):
     id: str
     text: str
+
+
+class SectionOut(BaseModel):
+    name: str
+    heading: str | None
+    text: str
+
+
+class ResumeSectionsOut(BaseModel):
+    id: str
+    sections: list[SectionOut]
+    missing: list[str]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -59,6 +72,29 @@ def get_resume_text(
     storage: Annotated[ResumeStorage, Depends(get_storage)],
 ) -> ResumeText:
     """Return the plain text found in an uploaded resume."""
+    stored, text = _read_resume(resume_id, storage)
+    return ResumeText(id=stored.id, text=text)
+
+
+@router.get("/{resume_id}/sections")
+def get_resume_sections(
+    resume_id: str,
+    storage: Annotated[ResumeStorage, Depends(get_storage)],
+) -> ResumeSectionsOut:
+    """Split an uploaded resume into contact, summary, experience, education and skills."""
+    stored, text = _read_resume(resume_id, storage)
+    result = detect_sections(text)
+    return ResumeSectionsOut(
+        id=stored.id,
+        sections=[
+            SectionOut(name=section.name, heading=section.heading, text=section.text)
+            for section in result.sections
+        ],
+        missing=result.missing,
+    )
+
+
+def _read_resume(resume_id: str, storage: ResumeStorage) -> tuple[StoredResume, str]:
     try:
         stored = storage.get(resume_id)
     except ResumeNotFound:
@@ -71,4 +107,4 @@ def get_resume_text(
         text = extract_text(stored.path, stored.file_type)
     except UnreadableResume as error:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(error)) from None
-    return ResumeText(id=stored.id, text=text)
+    return stored, text
