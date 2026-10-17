@@ -203,11 +203,17 @@ def _normalize(heading: str) -> str:
     return " ".join(re.sub(r"[^a-z ]", " ", heading).split())
 
 
-def _has_contact_detail(line: str) -> bool:
-    if _EMAIL.search(line) or _PROFILE_LINK.search(line):
-        return True
+def has_email(text: str) -> bool:
+    return _EMAIL.search(text) is not None
+
+
+def has_phone(text: str) -> bool:
     return any(
         sum(char.isdigit() for char in match.group()) >= _PHONE_DIGITS
-        for match in _PHONE.finditer(line)
+        for match in _PHONE.finditer(text)
     )
+
+
+def _has_contact_detail(line: str) -> bool:
+    return has_email(line) or has_phone(line) or _PROFILE_LINK.search(line) is not None
 

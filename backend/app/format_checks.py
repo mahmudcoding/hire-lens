@@ -19,6 +19,8 @@ import pdfplumber
 from docx import Document
 from docx.oxml.ns import qn
 
+from app.sections import detect_sections, has_email, has_phone
+
 
 @dataclass(frozen=True)
 class FormatProblem:
@@ -63,6 +65,39 @@ IMAGES = FormatProblem(
         "Replace them with plain text."
     ),
 )
+UNREADABLE_FONT = FormatProblem(
+    code="unreadable_font",
+    title="Unreadable font",
+    explanation=(
+        "Some of the text in your resume can't be read as letters, usually because "
+        "of a decorative or embedded font. An ATS sees that text as gibberish. "
+        "Use a standard font like Arial, Calibri or Times New Roman."
+    ),
+)
+CONTACT_IN_HEADER = FormatProblem(
+    code="contact_in_header",
+    title="Contact details in the page header",
+    explanation=(
+        "Your email or phone number is only in the page header or footer. Many ATS "
+        "skip headers and footers, so they won't find how to reach you. "
+        "Put your contact details at the top of the main text."
+    ),
+)
+NO_EMAIL = FormatProblem(
+    code="no_email",
+    title="No email address",
+    explanation="We couldn't find an email address. Add one near the top of your resume.",
+)
+NO_PHONE = FormatProblem(
+    code="no_phone",
+    title="No phone number",
+    explanation="We couldn't find a phone number. Add one near the top of your resume.",
+)
+
+# These headings are what an ATS looks for. A summary is useful but optional.
+_REQUIRED_HEADINGS = ("experience", "education", "skills")
+# pdfminer writes "(cid:12)" for a character whose font has no letter for it.
+_UNREADABLE_MARKS = ("(cid:", "\ufffd")
 
 # Ignore empty space narrower than this (in points) between two words.
 _MIN_GUTTER = 12
@@ -72,6 +107,8 @@ _MIN_COLUMN_SHARE = 0.12
 _MAX_CROSSING_SHARE = 0.2
 _MIN_COLUMN_LINES = 5
 
+_W_P = qn("w:p")
+_W_T = qn("w:t")
 _W_TBL = qn("w:tbl")
 _W_COLS = qn("w:cols")
 _W_NUM = qn("w:num")
@@ -82,13 +119,53 @@ _DGM_REL_IDS = "{http://schemas.openxmlformats.org/drawingml/2006/diagram}relIds
 _V_IMAGEDATA = "{urn:schemas-microsoft-com:vml}imagedata"
 
 
-def check_format(path: Path, file_type: str) -> list[FormatProblem]:
-    """Return the format problems found in a stored resume, most serious first."""
+def check_format(path: Path, file_type: str, text: str) -> list[FormatProblem]:
+    """Return the format problems found in a stored resume, layout problems first.
+
+    The text is what extraction read from the same file, which is what an ATS
+    would see.
+    """
     if file_type == "pdf":
-        return list(_pdf_problems(path))
-    if file_type == "docx":
-        return list(_docx_problems(path))
-    raise ValueError(f"Unsupported file type: {file_type}")
+        problems = list(_pdf_problems(path))
+        header_text = ""
+    elif file_type == "docx":
+        problems = list(_docx_problems(path))
+        header_text = _docx_header_text(path)
+    else:
+        raise ValueError(f"Unsupported file type: {file_type}")
+
+    if any(mark in text for mark in _UNREADABLE_MARKS):
+        problems.append(UNREADABLE_FONT)
+    missing = [name for name in detect_sections(text).missing if name in _REQUIRED_HEADINGS]
+    if missing:
+        problems.append(_missing_headings(missing))
+    problems += _contact_problems(text, header_text)
+    return problems
+
+
+def _missing_headings(missing: list[str]) -> FormatProblem:
+    names = ", ".join(missing[:-1]) + " and " + missing[-1] if len(missing) > 1 else missing[0]
+    return FormatProblem(
+        code="missing_headings",
+        title="Missing section headings",
+        explanation=(
+            f"We couldn't find a heading for {names}. An ATS uses headings to find each "
+            "part of a resume. Use plain headings like 'Experience', 'Education' "
+            "and 'Skills' on a line of their own."
+        ),
+    )
+
+
+def _contact_problems(text: str, header_text: str) -> list[FormatProblem]:
+    problems = []
+    email, phone = has_email(text), has_phone(text)
+    if (not email and has_email(header_text)) or (not phone and has_phone(header_text)):
+        problems.append(CONTACT_IN_HEADER)
+    if not email and not has_email(header_text):
+        problems.append(NO_EMAIL)
+    if not phone and not has_phone(header_text):
+        problems.append(NO_PHONE)
+    return problems
 
 
 def _pdf_problems(path: Path) -> Iterator[FormatProblem]:
@@ -161,6 +238,15 @@ def _docx_problems(path: Path) -> Iterator[FormatProblem]:
         for tag in (_A_BLIP, _C_CHART, _DGM_REL_IDS, _V_IMAGEDATA)
     ):
         yield IMAGES
+
+
+def _docx_header_text(path: Path) -> str:
+    document = Document(str(path))
+    return "\n".join(
+        "".join(node.text or "" for node in paragraph.iter(_W_T))
+        for rel in _header_footer_rels(document)
+        for paragraph in rel.target_part.element.iter(_W_P)
+    )
 
 
 def _header_footer_rels(document):
