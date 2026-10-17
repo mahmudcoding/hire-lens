@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from app.config import MAX_UPLOAD_BYTES
 from app.extraction import UnreadableResume, extract_text
 from app.file_types import UnsupportedFileType, detect_file_type
+from app.format_checks import check_format
 from app.sections import detect_sections
 from app.storage import ResumeNotFound, ResumeStorage, StoredResume, get_storage
 
@@ -34,6 +35,17 @@ class ResumeSectionsOut(BaseModel):
     id: str
     sections: list[SectionOut]
     missing: list[str]
+
+
+class FormatProblemOut(BaseModel):
+    code: str
+    title: str
+    explanation: str
+
+
+class ResumeFormatChecks(BaseModel):
+    id: str
+    problems: list[FormatProblemOut]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -91,6 +103,24 @@ def get_resume_sections(
             for section in result.sections
         ],
         missing=result.missing,
+    )
+
+
+@router.get("/{resume_id}/format-checks")
+def get_resume_format_checks(
+    resume_id: str,
+    storage: Annotated[ResumeStorage, Depends(get_storage)],
+) -> ResumeFormatChecks:
+    """List what in an uploaded resume's format could confuse an ATS, with explanations."""
+    stored, text = _read_resume(resume_id, storage)
+    return ResumeFormatChecks(
+        id=stored.id,
+        problems=[
+            FormatProblemOut(
+                code=problem.code, title=problem.title, explanation=problem.explanation
+            )
+            for problem in check_format(stored.path, stored.file_type, text)
+        ],
     )
 
 
