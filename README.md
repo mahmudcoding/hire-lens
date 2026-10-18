@@ -45,6 +45,10 @@ To check which sections (contact, summary, experience, education, skills) HireLe
 uv run python -m scripts.check_sections /path/to/test-resumes
 ```
 
+## How the ATS score works
+
+`GET /api/resumes/{id}/ats-score` gives a score from 0 to 100. Every resume starts at 100 and loses a fixed number of points for each format problem found (tables, columns, images, missing headings and so on). The response lists what each problem cost. The weights and the reasons for them are in `backend/app/ats_score.py`.
+
 ## Project structure
 
 ```

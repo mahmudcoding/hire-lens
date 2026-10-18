@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
+from app.ats_score import MAX_SCORE, calculate_ats_score
 from app.config import MAX_UPLOAD_BYTES
 from app.extraction import UnreadableResume, extract_text
 from app.file_types import UnsupportedFileType, detect_file_type
@@ -46,6 +47,19 @@ class FormatProblemOut(BaseModel):
 class ResumeFormatChecks(BaseModel):
     id: str
     problems: list[FormatProblemOut]
+
+
+class DeductionOut(BaseModel):
+    code: str
+    title: str
+    points: int
+
+
+class ResumeAtsScore(BaseModel):
+    id: str
+    score: int
+    max_score: int
+    deductions: list[DeductionOut]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -120,6 +134,25 @@ def get_resume_format_checks(
                 code=problem.code, title=problem.title, explanation=problem.explanation
             )
             for problem in check_format(stored.path, stored.file_type, text)
+        ],
+    )
+
+
+@router.get("/{resume_id}/ats-score")
+def get_resume_ats_score(
+    resume_id: str,
+    storage: Annotated[ResumeStorage, Depends(get_storage)],
+) -> ResumeAtsScore:
+    """Score an uploaded resume from 0 to 100 and show what each format problem cost."""
+    stored, text = _read_resume(resume_id, storage)
+    result = calculate_ats_score(check_format(stored.path, stored.file_type, text))
+    return ResumeAtsScore(
+        id=stored.id,
+        score=result.score,
+        max_score=MAX_SCORE,
+        deductions=[
+            DeductionOut(code=deduction.code, title=deduction.title, points=deduction.points)
+            for deduction in result.deductions
         ],
     )
 
