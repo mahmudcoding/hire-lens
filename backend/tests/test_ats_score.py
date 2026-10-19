@@ -42,6 +42,15 @@ def test_deductions_are_listed_biggest_first_with_their_titles():
     assert result.deductions[0].title == "Multiple columns"
 
 
+def test_each_deduction_explains_the_problem_behind_it():
+    result = calculate_ats_score([TABLES, NO_PHONE])
+
+    assert [d.explanation for d in result.deductions] == [
+        TABLES.explanation,
+        NO_PHONE.explanation,
+    ]
+
+
 def test_the_score_never_goes_below_0():
     result = calculate_ats_score([problem(code) for code in WEIGHTS])
 

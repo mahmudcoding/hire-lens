@@ -52,6 +52,7 @@ class ResumeFormatChecks(BaseModel):
 class DeductionOut(BaseModel):
     code: str
     title: str
+    explanation: str
     points: int
 
 
@@ -151,7 +152,12 @@ def get_resume_ats_score(
         score=result.score,
         max_score=MAX_SCORE,
         deductions=[
-            DeductionOut(code=deduction.code, title=deduction.title, points=deduction.points)
+            DeductionOut(
+                code=deduction.code,
+                title=deduction.title,
+                explanation=deduction.explanation,
+                points=deduction.points,
+            )
             for deduction in result.deductions
         ],
     )
