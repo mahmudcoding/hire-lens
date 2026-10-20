@@ -1,0 +1,103 @@
+.ats-score {
+  margin-top: 32px;
+}
+
+.ats-score h2 {
+  margin: 0 0 12px;
+  font-size: 1.25rem;
+}
+
+.ats-score p {
+  margin: 0;
+}
+
+.ats-score-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+  margin-bottom: 16px;
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  border-left-width: 6px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.ats-score-total.is-good {
+  border-left-color: var(--success);
+}
+
+.ats-score-total.is-fair {
+  border-left-color: var(--accent);
+}
+
+.ats-score-total.is-poor {
+  border-left-color: var(--danger);
+}
+
+.ats-score-value {
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ats-score-number {
+  font-size: clamp(2.75rem, 12vw, 3.5rem);
+  font-weight: 700;
+}
+
+.ats-score-max {
+  margin-left: 2px;
+  color: var(--muted);
+  font-size: 1.25rem;
+}
+
+.ats-score-summary {
+  flex: 1 1 220px;
+  color: var(--muted);
+}
+
+.ats-problems-title {
+  margin: 0 0 8px;
+  font-size: 1.0625rem;
+}
+
+.ats-problems {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ats-problem {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.ats-problem-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 4px;
+}
+
+.ats-problem h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.ats-problem-points {
+  color: var(--danger);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ats-problem p {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
