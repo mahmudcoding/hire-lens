@@ -1,5 +1,7 @@
 from docx import Document
 
+from app.format_checks import NO_PHONE, TABLES
+
 
 def upload_docx(client, tmp_path, lines, table=False):
     path = tmp_path / "resume.docx"
@@ -49,8 +51,18 @@ def test_the_score_lists_what_each_problem_cost(client, tmp_path):
 
     assert body["score"] == 100 - 20 - 5
     assert body["deductions"] == [
-        {"code": "tables", "title": "Tables", "points": 20},
-        {"code": "no_phone", "title": "No phone number", "points": 5},
+        {
+            "code": "tables",
+            "title": "Tables",
+            "explanation": TABLES.explanation,
+            "points": 20,
+        },
+        {
+            "code": "no_phone",
+            "title": "No phone number",
+            "explanation": NO_PHONE.explanation,
+            "points": 5,
+        },
     ]
 
 

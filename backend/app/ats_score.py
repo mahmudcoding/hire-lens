@@ -47,6 +47,7 @@ WEIGHTS: dict[str, int] = {
 class Deduction:
     code: str
     title: str
+    explanation: str
     points: int
 
 
@@ -60,7 +61,10 @@ class AtsScore:
 def calculate_ats_score(problems: list[FormatProblem]) -> AtsScore:
     """Score a resume from the format problems found in it."""
     deductions = sorted(
-        (Deduction(problem.code, problem.title, WEIGHTS[problem.code]) for problem in problems),
+        (
+            Deduction(problem.code, problem.title, problem.explanation, WEIGHTS[problem.code])
+            for problem in problems
+        ),
         key=lambda deduction: -deduction.points,
     )
     lost = sum(deduction.points for deduction in deductions)
