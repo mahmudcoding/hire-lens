@@ -144,7 +144,7 @@ def get_resume_ats_score(
     resume_id: str,
     storage: Annotated[ResumeStorage, Depends(get_storage)],
 ) -> ResumeAtsScore:
-    """Score an uploaded resume from 0 to 100 and show what each format problem cost."""
+    """Score an uploaded resume from 0 to 100 and explain what each format problem cost."""
     stored, text = _read_resume(resume_id, storage)
     result = calculate_ats_score(check_format(stored.path, stored.file_type, text))
     return ResumeAtsScore(
