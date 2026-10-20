@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { UploadedResume } from './api.ts'
+import { AtsScore } from './AtsScore.tsx'
 import { ExtractedText } from './ExtractedText.tsx'
 import { ResumeUpload } from './ResumeUpload.tsx'
 
@@ -13,7 +14,12 @@ function App() {
         <p>Check your resume the way an Applicant Tracking System would.</p>
       </header>
       <ResumeUpload onResumeChange={setResume} />
-      {resume && <ExtractedText key={resume.id} resume={resume} />}
+      {resume && (
+        <>
+          <AtsScore key={`score-${resume.id}`} resume={resume} />
+          <ExtractedText key={`text-${resume.id}`} resume={resume} />
+        </>
+      )}
     </main>
   )
 }

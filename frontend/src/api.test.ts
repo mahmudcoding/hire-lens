@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getResumeText, uploadResume } from './api.ts'
+import { getAtsScore, getResumeText, uploadResume } from './api.ts'
 
 class FakeXhr {
   static last: FakeXhr
@@ -85,21 +85,21 @@ describe('uploadResume', () => {
   })
 })
 
+function stubFetch(status: number, body: unknown) {
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  )
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
 describe('getResumeText', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
   })
-
-  function stubFetch(status: number, body: unknown) {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(body), {
-        status,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    )
-    vi.stubGlobal('fetch', fetchMock)
-    return fetchMock
-  }
 
   it("returns the resume's text", async () => {
     const fetchMock = stubFetch(200, { id: 'abc', text: 'Jane Doe' })
@@ -118,5 +118,46 @@ describe('getResumeText', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
 
     await expect(getResumeText('abc')).rejects.toThrow("Couldn't reach the server.")
+  })
+})
+
+describe('getAtsScore', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('returns the score and what each problem cost', async () => {
+    const score = {
+      id: 'abc',
+      score: 80,
+      max_score: 100,
+      deductions: [
+        { code: 'tables', title: 'Tables', explanation: 'Use plain paragraphs.', points: 20 },
+      ],
+    }
+    const fetchMock = stubFetch(200, score)
+
+    await expect(getAtsScore('abc')).resolves.toEqual(score)
+    expect(fetchMock).toHaveBeenCalledWith('/api/resumes/abc/ats-score', { signal: undefined })
+  })
+
+  it("rejects with the server's explanation", async () => {
+    stubFetch(404, { detail: "We couldn't find that resume. Please upload it again." })
+
+    await expect(getAtsScore('abc')).rejects.toThrow("We couldn't find that resume.")
+  })
+
+  it('rejects with a general message when the server gives no explanation', async () => {
+    stubFetch(500, null)
+
+    await expect(getAtsScore('abc')).rejects.toThrow(
+      'Something went wrong while scoring your resume. Please try again.',
+    )
+  })
+
+  it('rejects with a connection message when the request fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+
+    await expect(getAtsScore('abc')).rejects.toThrow("Couldn't reach the server.")
   })
 })
