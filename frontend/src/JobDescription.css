@@ -1,0 +1,50 @@
+.job-description {
+  margin-top: 32px;
+}
+
+.job-description h2 {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+}
+
+.job-description-optional {
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.job-description p {
+  margin: 0 0 12px;
+}
+
+.job-description-hint {
+  color: var(--muted);
+}
+
+.job-description-input {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  resize: vertical;
+}
+
+.job-description-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.job-description .job-description-count {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  text-align: right;
+}
+
+.job-description .message {
+  margin-top: 12px;
+}
