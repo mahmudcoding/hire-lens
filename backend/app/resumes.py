@@ -1,13 +1,14 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.ats_score import MAX_SCORE, calculate_ats_score
-from app.config import MAX_UPLOAD_BYTES
+from app.config import MAX_JOB_DESCRIPTION_LENGTH, MAX_UPLOAD_BYTES
 from app.extraction import UnreadableResume, extract_text
 from app.file_types import UnsupportedFileType, detect_file_type
 from app.format_checks import check_format
+from app.keywords import match_keywords
 from app.sections import detect_sections
 from app.storage import ResumeNotFound, ResumeStorage, StoredResume, get_storage
 
@@ -61,6 +62,18 @@ class ResumeAtsScore(BaseModel):
     score: int
     max_score: int
     deductions: list[DeductionOut]
+
+
+class JobDescriptionIn(BaseModel):
+    job_description: str = Field(max_length=MAX_JOB_DESCRIPTION_LENGTH)
+
+
+class ResumeKeywordMatch(BaseModel):
+    id: str
+    percentage: int
+    matched: list[str]
+    missing: list[str]
+    explanation: str
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -160,6 +173,37 @@ def get_resume_ats_score(
             )
             for deduction in result.deductions
         ],
+    )
+
+
+@router.post("/{resume_id}/keyword-match")
+def match_resume_keywords(
+    resume_id: str,
+    body: JobDescriptionIn,
+    storage: Annotated[ResumeStorage, Depends(get_storage)],
+) -> ResumeKeywordMatch:
+    """Compare an uploaded resume with a job description's keywords."""
+    if not body.job_description.strip():
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "Paste a job description to compare your resume with.",
+        )
+    stored, text = _read_resume(resume_id, storage)
+    result = match_keywords(text, body.job_description)
+    total = len(result.matched) + len(result.missing)
+    if total:
+        explanation = (
+            f"{len(result.matched)} of the {total} keywords in the job description "
+            f"were found in your resume."
+        )
+    else:
+        explanation = "We couldn't find any skills or terms in the job description to match."
+    return ResumeKeywordMatch(
+        id=stored.id,
+        percentage=result.percentage,
+        matched=result.matched,
+        missing=result.missing,
+        explanation=explanation,
     )
 
 
