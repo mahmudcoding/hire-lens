@@ -53,6 +53,8 @@ uv run python -m scripts.check_sections /path/to/test-resumes
 
 `POST /api/resumes/{id}/keyword-match` with `{"job_description": "..."}` (up to 10,000 characters) compares a resume with a job ad. HireLens picks the job ad's keywords, leaving out common words and words every job ad uses, keeps terms like "machine learning" together, and keeps the 30 the ad uses most. The match percentage is the share of those keywords found in the resume, and the response lists which ones were found and which are missing. Simple variations count as the same keyword: "APIs" and "API", "front-end" and "frontend", "Node.js" and "NodeJS". The details are in `backend/app/keywords.py`.
 
+The results page shows the match percentage, then the missing keywords (most important first) and, separately, the keywords the resume already has. It matches again a moment after the job description is edited. With no job description it says there is nothing to match.
+
 ## Project structure
 
 ```
