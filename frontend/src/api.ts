@@ -25,6 +25,17 @@ export type AtsScore = {
   deductions: AtsDeduction[]
 }
 
+export type KeywordMatch = {
+  id: string
+  /** Share of the job description's keywords found in the resume, 0 to 100. */
+  percentage: number
+  /** Keywords found in the resume, most important first. */
+  matched: string[]
+  /** Keywords not found in the resume, most important first. */
+  missing: string[]
+  explanation: string
+}
+
 export class ApiError extends Error {}
 
 const CONNECTION_PROBLEM = "Couldn't reach the server. Check your connection and try again."
@@ -70,28 +81,46 @@ export function uploadResume(
 
 /** Fetches the plain text the API found in an uploaded resume. */
 export function getResumeText(id: string, signal?: AbortSignal): Promise<ResumeText> {
-  return getJson(
+  return requestJson(
     `/api/resumes/${encodeURIComponent(id)}/text`,
     'Something went wrong while reading your resume. Please try again.',
-    signal,
+    { signal },
   )
 }
 
 /** Fetches the ATS score of an uploaded resume and the problems that lowered it. */
 export function getAtsScore(id: string, signal?: AbortSignal): Promise<AtsScore> {
-  return getJson(
+  return requestJson(
     `/api/resumes/${encodeURIComponent(id)}/ats-score`,
     'Something went wrong while scoring your resume. Please try again.',
-    signal,
+    { signal },
   )
 }
 
-async function getJson<T>(url: string, fallback: string, signal?: AbortSignal): Promise<T> {
+/** Compares an uploaded resume with a job description's keywords. */
+export function matchKeywords(
+  id: string,
+  jobDescription: string,
+  signal?: AbortSignal,
+): Promise<KeywordMatch> {
+  return requestJson(
+    `/api/resumes/${encodeURIComponent(id)}/keyword-match`,
+    'Something went wrong while matching your resume with the job description. Please try again.',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_description: jobDescription }),
+      signal,
+    },
+  )
+}
+
+async function requestJson<T>(url: string, fallback: string, init: RequestInit): Promise<T> {
   let response: Response
   try {
-    response = await fetch(url, { signal })
+    response = await fetch(url, init)
   } catch (error) {
-    if (signal?.aborted) throw error
+    if (init.signal?.aborted) throw error
     throw new ApiError(CONNECTION_PROBLEM)
   }
 
