@@ -55,6 +55,16 @@ uv run python -m scripts.check_sections /path/to/test-resumes
 
 The results page shows the match percentage, then the missing keywords (most important first) and, separately, the keywords the resume already has. It matches again a moment after the job description is edited. With no job description it says there is nothing to match.
 
+## Pages
+
+The bar at the top of every page links to three pages:
+
+- **Home** (`/`): paste a job description, upload a resume and read the results.
+- **History** (`/history`): will list the resumes a candidate has uploaded and checked.
+- **Profile** (`/profile`): will show the candidate's details.
+
+History and Profile are placeholders until the backend stores resumes per candidate.
+
 ## Project structure
 
 ```
