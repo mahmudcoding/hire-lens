@@ -74,6 +74,11 @@ body {
   color: var(--success);
 }
 
+.message.is-info {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
 .message.is-error {
   background: var(--danger-soft);
   color: var(--danger);

@@ -3,11 +3,11 @@ import type { UploadedResume } from './api.ts'
 import { AtsScore } from './AtsScore.tsx'
 import { ExtractedText } from './ExtractedText.tsx'
 import { JobDescription } from './JobDescription.tsx'
+import { KeywordMatch } from './KeywordMatch.tsx'
 import { ResumeUpload } from './ResumeUpload.tsx'
 
 function App() {
   const [resume, setResume] = useState<UploadedResume | null>(null)
-  // Kept here so the next step (keyword matching) can send it with the resume.
   const [jobDescription, setJobDescription] = useState('')
 
   return (
@@ -21,6 +21,11 @@ function App() {
       {resume && (
         <>
           <AtsScore key={`score-${resume.id}`} resume={resume} />
+          <KeywordMatch
+            key={`keywords-${resume.id}`}
+            resume={resume}
+            jobDescription={jobDescription}
+          />
           <ExtractedText key={`text-${resume.id}`} resume={resume} />
         </>
       )}

@@ -1,13 +1,20 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getAtsScore, getResumeText, uploadResume, type UploadedResume } from './api.ts'
+import {
+  getAtsScore,
+  getResumeText,
+  matchKeywords,
+  uploadResume,
+  type UploadedResume,
+} from './api.ts'
 import App from './App.tsx'
 
 vi.mock('./api.ts', () => ({
   uploadResume: vi.fn(),
   getAtsScore: vi.fn(),
   getResumeText: vi.fn(),
+  matchKeywords: vi.fn(),
 }))
 
 const stored: UploadedResume = {
@@ -27,6 +34,14 @@ describe('App', () => {
       deductions: [],
     })
     vi.mocked(getResumeText).mockResolvedValue({ id: 'abc', text: 'Jane Doe' })
+    vi.mocked(matchKeywords).mockReset()
+    vi.mocked(matchKeywords).mockResolvedValue({
+      id: 'abc',
+      percentage: 0,
+      matched: [],
+      missing: ['Backend'],
+      explanation: '0 of the 1 keywords in the job description were found in your resume.',
+    })
   })
 
   it('shows the product name', () => {
@@ -47,6 +62,8 @@ describe('App', () => {
 
     expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
     expect(getAtsScore).toHaveBeenCalledWith('abc', expect.any(AbortSignal))
+    expect(screen.getByText(/No job description was given/)).toBeInTheDocument()
+    expect(matchKeywords).not.toHaveBeenCalled()
   })
 
   it('keeps the pasted job description when another resume is uploaded', async () => {
@@ -63,5 +80,9 @@ describe('App', () => {
 
     expect(await screen.findByText('resume.pdf uploaded.')).toBeInTheDocument()
     expect(box).toHaveValue('Backend developer')
+    expect(
+      await screen.findByRole('list', { name: 'Missing keywords' }, { timeout: 2000 }),
+    ).toHaveTextContent('Backend')
+    expect(matchKeywords).toHaveBeenCalledWith('abc', 'Backend developer', expect.any(AbortSignal))
   })
 })
