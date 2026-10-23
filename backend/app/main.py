@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 
-from app import config, histories, resumes
+from app import auth, config, histories, resumes
 
 
 def create_app() -> FastAPI:
@@ -24,6 +24,7 @@ def create_app() -> FastAPI:
 
     app.include_router(resumes.router)
     app.include_router(histories.router)
+    app.include_router(auth.router)
 
     @app.get("/api/health")
     def health() -> dict[str, str]:
