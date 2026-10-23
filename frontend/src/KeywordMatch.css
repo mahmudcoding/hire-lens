@@ -1,0 +1,75 @@
+.keyword-match {
+  margin-top: 32px;
+}
+
+.keyword-match h2 {
+  margin: 0 0 12px;
+  font-size: 1.25rem;
+}
+
+.keyword-match h3 {
+  margin: 20px 0 8px;
+  font-size: 1.0625rem;
+}
+
+.keyword-match p {
+  margin: 0;
+}
+
+.keyword-match-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  border-left: 6px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.keyword-match-value {
+  font-size: clamp(2.25rem, 10vw, 2.75rem);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.keyword-match-summary {
+  flex: 1 1 220px;
+  color: var(--muted);
+}
+
+.keyword-match .keyword-match-hint {
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+
+.keyword-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.keyword-list li {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+
+.keyword-list.is-missing li {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.keyword-list.is-matched li {
+  border-color: var(--success);
+  background: var(--success-soft);
+  color: var(--success);
+}
