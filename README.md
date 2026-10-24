@@ -55,6 +55,20 @@ uv run python -m scripts.check_sections /path/to/test-resumes
 
 The results page shows the match percentage, then the missing keywords (most important first) and, separately, the keywords the resume already has. It matches again a moment after the job description is edited. With no job description it says there is nothing to match.
 
+## How the hiring chance works
+
+`POST /api/resumes/{id}/hiring-chance` with an optional `{"job_description": "..."}` estimates the chance of getting hired as a percentage and a level: Low (below 40), Medium (40 to 69) or High (70 and up). It combines five factors, each scored from 0 to 100:
+
+| Factor | Weight | Scored by |
+| --- | --- | --- |
+| ATS score | 30% | the ATS score above |
+| Keyword match | 30% | the keyword match percentage above |
+| Section completeness | 15% | how many of the 5 sections were found |
+| Measurable achievements | 15% | experience lines with a number that isn't a date (full marks at 3) |
+| Skills | 10% | how many skills are listed in the skills section (full marks at 8) |
+
+The percentage is the weighted average of the factors. Without a job description the keyword match is left out and its weight is shared among the other four. The response lists every factor with its score, weight and an explanation. Only the text of the resume is used, never the candidate's name, photo, gender, age or nationality. The details are in `backend/app/hiring_chance.py`.
+
 ## Project structure
 
 ```
