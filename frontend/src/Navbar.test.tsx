@@ -16,10 +16,11 @@ describe('Navbar', () => {
     renderAt('/')
     const nav = screen.getByRole('navigation', { name: 'Main' })
 
-    expect(within(nav).getByRole('link', { name: 'HireLens' })).toHaveAttribute('href', '/')
+    expect(within(nav).getByRole('link', { name: 'HireLens.' })).toHaveAttribute('href', '/')
     expect(within(nav).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/')
     expect(within(nav).getByRole('link', { name: 'History' })).toHaveAttribute('href', '/history')
     expect(within(nav).getByRole('link', { name: 'Profile' })).toHaveAttribute('href', '/profile')
+    expect(within(nav).getByRole('link', { name: 'Check my resume' })).toHaveAttribute('href', '/')
   })
 
   it('marks only the current page', () => {

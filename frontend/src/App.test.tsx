@@ -58,7 +58,7 @@ describe('App', () => {
   it('shows the product name and opens on the main page', () => {
     renderApp()
 
-    expect(screen.getByRole('link', { name: 'HireLens' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'HireLens.' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Check your resume' })).toBeInTheDocument()
   })
 

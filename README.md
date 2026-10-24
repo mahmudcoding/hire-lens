@@ -65,6 +65,10 @@ The bar at the top of every page links to three pages:
 
 History and Profile are placeholders until the backend stores resumes per candidate.
 
+## Design system
+
+The frontend is styled with [Tailwind CSS](https://tailwindcss.com/) v4 and [HeroUI](https://heroui.com/) v3. The theme lives in `frontend/src/index.css`: it maps the HireLens palette (navy `#1B3046`, blue `#1082B7`, mint `#85D6C1`, maroon `#852E29`) onto HeroUI's semantic tokens such as `--accent`, `--success` and `--danger`, and sets the fonts to Geist and Geist Mono, which are bundled from npm rather than loaded from a CDN. The site is dark only for now.
+
 ## Project structure
 
 ```
