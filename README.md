@@ -71,6 +71,10 @@ The percentage is the weighted average of the factors. Without a job description
 
 The results page shows the level and percentage, then the factors in two lists: the ones that scored 70 or more raised the chance, the rest lowered it. Each factor shows its score, its weight and the explanation. It estimates again a moment after the job description is edited. A note under the result says it is an estimate, not a guarantee.
 
+## How the suggestions panel works
+
+The "Best options" panel calls `POST /api/resumes/{id}/suggestions` and shows what to fix, in the priority order the server already ranked them. Each entry shows what to change, why, and a badge with the estimated percentage points it would add to the hiring chance above. It works with or without a job description; without one there just aren't any keyword suggestions. It re-lists a moment after the job description is edited, same as the hiring chance. The component is `frontend/src/Suggestions.tsx`.
+
 ## Project structure
 
 ```
