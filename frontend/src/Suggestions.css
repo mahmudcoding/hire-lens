@@ -1,0 +1,62 @@
+.suggestions {
+  margin-top: 32px;
+}
+
+.suggestions h2 {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+}
+
+.suggestions p {
+  margin: 0;
+}
+
+.suggestions .suggestions-hint {
+  margin-bottom: 12px;
+  color: var(--muted);
+}
+
+.suggestion-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.suggestion {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.suggestion-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 4px;
+}
+
+.suggestion-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.suggestion-gain {
+  flex-shrink: 0;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--success-soft);
+  color: var(--success);
+  font-weight: 600;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.suggestion p {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
