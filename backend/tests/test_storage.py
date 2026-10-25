@@ -1,6 +1,15 @@
+import os
+import time
+
 import pytest
 
-from app.storage import ResumeNotFound
+from app.storage import ResumeNotFound, ResumeStorage
+
+
+def _age(path, hours: float) -> None:
+    """Back-date a stored file's mtime, as if it had been sitting there for `hours`."""
+    then = time.time() - hours * 60 * 60
+    os.utime(path, (then, then))
 
 
 def test_saved_resume_can_be_read_back(storage):
@@ -39,3 +48,48 @@ def test_unknown_id_is_not_found(storage):
 def test_malformed_ids_are_not_found(storage, bad_id):
     with pytest.raises(ResumeNotFound):
         storage.get(bad_id)
+
+
+def test_delete_expired_removes_resumes_older_than_24_hours(storage):
+    old = storage.save(b"old resume", "pdf")
+    _age(old.path, hours=25)
+
+    removed = storage.delete_expired()
+
+    assert removed == 1
+    with pytest.raises(ResumeNotFound):
+        storage.get(old.id)
+
+
+def test_delete_expired_keeps_resumes_younger_than_24_hours(storage):
+    recent = storage.save(b"recent resume", "pdf")
+    _age(recent.path, hours=23)
+
+    removed = storage.delete_expired()
+
+    assert removed == 0
+    assert storage.get(recent.id) == recent
+
+
+def test_delete_expired_only_removes_what_has_actually_expired(storage):
+    old = storage.save(b"old", "pdf")
+    recent = storage.save(b"recent", "docx")
+    _age(old.path, hours=48)
+    _age(recent.path, hours=1)
+
+    removed = storage.delete_expired()
+
+    assert removed == 1
+    with pytest.raises(ResumeNotFound):
+        storage.get(old.id)
+    assert storage.get(recent.id) == recent
+
+
+def test_delete_expired_on_empty_storage_does_nothing(storage):
+    assert storage.delete_expired() == 0
+
+
+def test_delete_expired_when_storage_dir_does_not_exist_yet(tmp_path):
+    storage = ResumeStorage(tmp_path / "never-created")
+
+    assert storage.delete_expired() == 0
