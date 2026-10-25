@@ -4,6 +4,7 @@ Only the body of a DOCX is read, not its headers and footers. Many Applicant
 Tracking Systems skip those too, and HireLens reads resumes the way an ATS would.
 """
 
+import io
 import re
 from pathlib import Path
 
@@ -40,11 +41,13 @@ class UnreadableResume(Exception):
     """The file can't be turned into text. The message tells the candidate why."""
 
 
-def extract_text(path: Path, file_type: str) -> str:
+def extract_text(source: Path | bytes, file_type: str) -> str:
+    """source is a file on disk, or raw bytes already decrypted into memory (DP-19)."""
+    data = source.read_bytes() if isinstance(source, Path) else source
     if file_type == "pdf":
-        text, empty_message = _pdf_text(path), SCANNED_PDF
+        text, empty_message = _pdf_text(data), SCANNED_PDF
     elif file_type == "docx":
-        text, empty_message = _docx_text(path), EMPTY_DOCX
+        text, empty_message = _docx_text(data), EMPTY_DOCX
     else:
         raise ValueError(f"Unsupported file type: {file_type}")
 
@@ -54,11 +57,11 @@ def extract_text(path: Path, file_type: str) -> str:
     return text
 
 
-def _pdf_text(path: Path) -> str:
+def _pdf_text(data: bytes) -> str:
     # pdfminer raises many different errors for broken or locked files, and
     # all of them should reach the candidate as the same clear message.
     try:
-        with pdfplumber.open(path) as pdf:
+        with pdfplumber.open(io.BytesIO(data)) as pdf:
             pages = [page.extract_text() or "" for page in pdf.pages]
     except Exception as error:
         raise UnreadableResume(DAMAGED_PDF) from error
@@ -67,9 +70,9 @@ def _pdf_text(path: Path) -> str:
     return "\n\n".join(pages)
 
 
-def _docx_text(path: Path) -> str:
+def _docx_text(data: bytes) -> str:
     try:
-        body = Document(str(path)).element.body
+        body = Document(io.BytesIO(data)).element.body
     except Exception as error:
         raise UnreadableResume(DAMAGED_DOCX) from error
 

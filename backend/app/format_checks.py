@@ -11,6 +11,7 @@ on the left at the same height. Right-aligned dates and cities always share a
 line with a job title, so they don't count as a column.
 """
 
+import io
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -119,18 +120,20 @@ _DGM_REL_IDS = "{http://schemas.openxmlformats.org/drawingml/2006/diagram}relIds
 _V_IMAGEDATA = "{urn:schemas-microsoft-com:vml}imagedata"
 
 
-def check_format(path: Path, file_type: str, text: str) -> list[FormatProblem]:
+def check_format(source: Path | bytes, file_type: str, text: str) -> list[FormatProblem]:
     """Return the format problems found in a stored resume, layout problems first.
 
-    The text is what extraction read from the same file, which is what an ATS
-    would see.
+    source is a file on disk, or raw bytes already decrypted into memory
+    (DP-19). The text is what extraction read from the same file, which is
+    what an ATS would see.
     """
+    data = source.read_bytes() if isinstance(source, Path) else source
     if file_type == "pdf":
-        problems = list(_pdf_problems(path))
+        problems = list(_pdf_problems(data))
         header_text = ""
     elif file_type == "docx":
-        problems = list(_docx_problems(path))
-        header_text = _docx_header_text(path)
+        problems = list(_docx_problems(data))
+        header_text = _docx_header_text(data)
     else:
         raise ValueError(f"Unsupported file type: {file_type}")
 
@@ -168,8 +171,8 @@ def _contact_problems(text: str, header_text: str) -> list[FormatProblem]:
     return problems
 
 
-def _pdf_problems(path: Path) -> Iterator[FormatProblem]:
-    with pdfplumber.open(path) as pdf:
+def _pdf_problems(data: bytes) -> Iterator[FormatProblem]:
+    with pdfplumber.open(io.BytesIO(data)) as pdf:
         pages = pdf.pages
         if any(page.find_tables() for page in pages):
             yield TABLES
@@ -220,8 +223,8 @@ def _extent(spans: list[tuple[float, float]]) -> float:
     return max(x1 for _, x1 in spans) - min(x0 for x0, _ in spans)
 
 
-def _docx_problems(path: Path) -> Iterator[FormatProblem]:
-    document = Document(str(path))
+def _docx_problems(data: bytes) -> Iterator[FormatProblem]:
+    document = Document(io.BytesIO(data))
     body = document.element.body
     if _first(body, _W_TBL) is not None:
         yield TABLES
@@ -240,8 +243,8 @@ def _docx_problems(path: Path) -> Iterator[FormatProblem]:
         yield IMAGES
 
 
-def _docx_header_text(path: Path) -> str:
-    document = Document(str(path))
+def _docx_header_text(data: bytes) -> str:
+    document = Document(io.BytesIO(data))
     return "\n".join(
         "".join(node.text or "" for node in paragraph.iter(_W_T))
         for rel in _header_footer_rels(document)
