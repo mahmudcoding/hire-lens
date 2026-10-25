@@ -22,6 +22,10 @@
   background: var(--accent-soft);
 }
 
+.dropzone.is-blocked {
+  opacity: 0.6;
+}
+
 .dropzone-title {
   margin: 0;
   font-size: 1.125rem;
