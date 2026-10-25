@@ -4,6 +4,7 @@ import { ExtractedText } from './ExtractedText.tsx'
 import { JobDescription } from './JobDescription.tsx'
 import { KeywordMatch } from './KeywordMatch.tsx'
 import { ResumeUpload } from './ResumeUpload.tsx'
+import { Sections } from './Sections.tsx'
 
 type Props = {
   resume: UploadedResume | null
@@ -34,6 +35,7 @@ export function HomePage({
             resume={resume}
             jobDescription={jobDescription}
           />
+          <Sections key={`sections-${resume.id}`} resume={resume} />
           <ExtractedText key={`text-${resume.id}`} resume={resume} />
         </>
       )}
