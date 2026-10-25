@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getAtsScore, getResumeText, matchKeywords, uploadResume } from './api.ts'
+import { getAtsScore, getHiringChance, getResumeText, matchKeywords, uploadResume } from './api.ts'
 
 class FakeXhr {
   static last: FakeXhr
@@ -209,5 +209,68 @@ describe('matchKeywords', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
 
     await expect(matchKeywords('abc', 'Python')).rejects.toThrow("Couldn't reach the server.")
+  })
+})
+
+describe('getHiringChance', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('posts the job description and returns the level, percentage and factors', async () => {
+    const chance = {
+      id: 'abc',
+      percentage: 72,
+      level: 'High',
+      factors: [
+        {
+          code: 'ats_score',
+          title: 'ATS score',
+          score: 90,
+          weight: 30,
+          explanation: "Your resume's ATS score is 90 out of 100.",
+        },
+      ],
+    }
+    const fetchMock = stubFetch(200, chance)
+    const controller = new AbortController()
+
+    await expect(getHiringChance('abc', 'Python', controller.signal)).resolves.toEqual(chance)
+    expect(fetchMock).toHaveBeenCalledWith('/api/resumes/abc/hiring-chance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_description: 'Python' }),
+      signal: controller.signal,
+    })
+  })
+
+  it('sends an empty job description when there is none', async () => {
+    const fetchMock = stubFetch(200, { id: 'abc', percentage: 50, level: 'Medium', factors: [] })
+
+    await getHiringChance('abc', '')
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/resumes/abc/hiring-chance',
+      expect.objectContaining({ body: JSON.stringify({ job_description: '' }) }),
+    )
+  })
+
+  it("rejects with the server's explanation", async () => {
+    stubFetch(404, { detail: "We couldn't find that resume. Please upload it again." })
+
+    await expect(getHiringChance('abc', '')).rejects.toThrow("We couldn't find that resume.")
+  })
+
+  it('rejects with a general message when the server gives no explanation', async () => {
+    stubFetch(500, null)
+
+    await expect(getHiringChance('abc', '')).rejects.toThrow(
+      'Something went wrong while estimating your hiring chance. Please try again.',
+    )
+  })
+
+  it('rejects with a connection message when the request fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+
+    await expect(getHiringChance('abc', '')).rejects.toThrow("Couldn't reach the server.")
   })
 })
