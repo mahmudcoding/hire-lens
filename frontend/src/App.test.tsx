@@ -5,6 +5,7 @@ import {
   getAtsScore,
   getHiringChance,
   getResumeText,
+  getSuggestions,
   matchKeywords,
   uploadResume,
   type UploadedResume,
@@ -17,6 +18,7 @@ vi.mock('./api.ts', () => ({
   getResumeText: vi.fn(),
   getHiringChance: vi.fn(),
   matchKeywords: vi.fn(),
+  getSuggestions: vi.fn(),
 }))
 
 const stored: UploadedResume = {
@@ -50,6 +52,7 @@ describe('App', () => {
       missing: ['Backend'],
       explanation: '0 of the 1 keywords in the job description were found in your resume.',
     })
+    vi.mocked(getSuggestions).mockResolvedValue({ id: 'abc', suggestions: [] })
   })
 
   it('shows the product name', () => {
