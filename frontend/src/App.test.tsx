@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getAtsScore,
+  getHiringChance,
   getResumeText,
   matchKeywords,
   uploadResume,
@@ -14,6 +15,7 @@ vi.mock('./api.ts', () => ({
   uploadResume: vi.fn(),
   getAtsScore: vi.fn(),
   getResumeText: vi.fn(),
+  getHiringChance: vi.fn(),
   matchKeywords: vi.fn(),
 }))
 
@@ -34,6 +36,12 @@ describe('App', () => {
       deductions: [],
     })
     vi.mocked(getResumeText).mockResolvedValue({ id: 'abc', text: 'Jane Doe' })
+    vi.mocked(getHiringChance).mockResolvedValue({
+      id: 'abc',
+      percentage: 64,
+      level: 'Medium',
+      factors: [],
+    })
     vi.mocked(matchKeywords).mockReset()
     vi.mocked(matchKeywords).mockResolvedValue({
       id: 'abc',
@@ -64,6 +72,10 @@ describe('App', () => {
     expect(getAtsScore).toHaveBeenCalledWith('abc', expect.any(AbortSignal))
     expect(screen.getByText(/No job description was given/)).toBeInTheDocument()
     expect(matchKeywords).not.toHaveBeenCalled()
+    expect(
+      await screen.findByLabelText('Medium hiring chance, 64%', {}, { timeout: 2000 }),
+    ).toBeInTheDocument()
+    expect(getHiringChance).toHaveBeenCalledWith('abc', '', expect.any(AbortSignal))
   })
 
   it('keeps the pasted job description when another resume is uploaded', async () => {

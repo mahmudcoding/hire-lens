@@ -1,0 +1,114 @@
+.hiring-chance {
+  margin-top: 32px;
+}
+
+.hiring-chance h2 {
+  margin: 0 0 12px;
+  font-size: 1.25rem;
+}
+
+.hiring-chance h3 {
+  margin: 20px 0 8px;
+  font-size: 1.0625rem;
+}
+
+.hiring-chance p {
+  margin: 0;
+}
+
+.hiring-chance-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  border-left-width: 6px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.hiring-chance-total.is-high {
+  border-left-color: var(--success);
+}
+
+.hiring-chance-total.is-medium {
+  border-left-color: var(--accent);
+}
+
+.hiring-chance-total.is-low {
+  border-left-color: var(--danger);
+}
+
+.hiring-chance-value {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.hiring-chance-level {
+  font-size: clamp(2.25rem, 10vw, 2.75rem);
+  font-weight: 700;
+}
+
+.hiring-chance-percentage {
+  color: var(--muted);
+  font-size: 1.25rem;
+}
+
+.hiring-chance-summary {
+  flex: 1 1 220px;
+  color: var(--muted);
+}
+
+.hiring-chance .hiring-chance-hint {
+  color: var(--muted);
+}
+
+.hiring-factors {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hiring-factor {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.hiring-factor-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 4px;
+}
+
+.hiring-factor h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.hiring-factor-score {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.hiring-factor p {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.hiring-chance .hiring-chance-disclaimer {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  font-size: 0.9375rem;
+}

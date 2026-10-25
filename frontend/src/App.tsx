@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { UploadedResume } from './api.ts'
 import { AtsScore } from './AtsScore.tsx'
 import { ExtractedText } from './ExtractedText.tsx'
+import { HiringChance } from './HiringChance.tsx'
 import { JobDescription } from './JobDescription.tsx'
 import { KeywordMatch } from './KeywordMatch.tsx'
 import { ResumeUpload } from './ResumeUpload.tsx'
@@ -23,6 +24,11 @@ function App() {
           <AtsScore key={`score-${resume.id}`} resume={resume} />
           <KeywordMatch
             key={`keywords-${resume.id}`}
+            resume={resume}
+            jobDescription={jobDescription}
+          />
+          <HiringChance
+            key={`chance-${resume.id}`}
             resume={resume}
             jobDescription={jobDescription}
           />
