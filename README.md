@@ -71,6 +71,14 @@ The percentage is the weighted average of the factors. Without a job description
 
 The results page shows the level and percentage, then the factors in two lists: the ones that scored 70 or more raised the chance, the rest lowered it. Each factor shows its score, its weight and the explanation. It estimates again a moment after the job description is edited. A note under the result says it is an estimate, not a guarantee.
 
+## Encryption and HTTPS (NFR-01)
+
+Resumes are encrypted at rest: `backend/app/storage.py` encrypts every file with [Fernet](https://cryptography.io/en/latest/fernet/) before it touches disk, and only ever decrypts into memory, never back to another file. The key comes from `HIRELENS_ENCRYPTION_KEY`; without it, a random key is generated for that process only, so a restart makes resumes saved before it unreadable (safe, since they're deleted automatically within 24 hours anyway - DP-29 - but set a real key before deploying). See `.env.example`.
+
+Set `HIRELENS_FORCE_HTTPS=true` once the app is actually running behind a real TLS certificate (a reverse proxy, load balancer or hosting platform - DP-34 is what sets that up) to redirect plain HTTP to HTTPS and send `Strict-Transport-Security`. It's off by default so local dev keeps working over plain `http://localhost:8000`.
+
+The app itself does no logging beyond uvicorn's own request logs (method, path, status - never the body), so resume text never reaches a log file to begin with.
+
 ## Project structure
 
 ```
