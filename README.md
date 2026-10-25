@@ -45,6 +45,10 @@ To check which sections (contact, summary, experience, education, skills) HireLe
 uv run python -m scripts.check_sections /path/to/test-resumes
 ```
 
+## How resume retention works
+
+Resumes are deleted automatically 24 hours after upload, along with everything derived from them: HireLens never writes extracted text to disk, it's re-read from the resume file on every request, so deleting that one file is enough. A background job built into the API checks every hour (`HIRELENS_CLEANUP_INTERVAL_SECONDS`) for resumes past that age and removes them. The details are in `backend/app/storage.py` (`ResumeStorage.delete_expired`) and `backend/app/main.py`.
+
 ## How the ATS score works
 
 `GET /api/resumes/{id}/ats-score` gives a score from 0 to 100. Every resume starts at 100 and loses a fixed number of points for each format problem found (tables, columns, images, missing headings and so on). The response lists what each problem cost and explains how to fix it. The weights and the reasons for them are in `backend/app/ats_score.py`.
