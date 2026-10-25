@@ -69,6 +69,8 @@ The results page shows the match percentage, then the missing keywords (most imp
 
 The percentage is the weighted average of the factors. Without a job description the keyword match is left out and its weight is shared among the other four. The response lists every factor with its score, weight and an explanation. Only the text of the resume is used, never the candidate's name, photo, gender, age or nationality. The details are in `backend/app/hiring_chance.py`.
 
+The results page shows the level and percentage, then the factors in two lists: the ones that scored 70 or more raised the chance, the rest lowered it. Each factor shows its score, its weight and the explanation. It estimates again a moment after the job description is edited. A note under the result says it is an estimate, not a guarantee.
+
 ## Project structure
 
 ```
