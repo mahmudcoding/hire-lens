@@ -33,16 +33,18 @@ The frontend forwards every `/api` request to the API, so open the frontend URL.
 | `npm run lint` | Lints the frontend |
 | `npm run build` | Builds the frontend for production |
 
+`test-resumes/` is a checked-in set of 20 fake resumes for exactly this (DP-15): 11 good, 9 deliberately ATS-unfriendly (two columns, tables, photos, a text box, no headings, header-only contact, one scanned with no text at all). See `test-resumes/README.md`, or regenerate it with `uv run python -m scripts.generate_test_resumes` from `backend/`.
+
 To check how many resumes in a folder HireLens can read (DP-18 asks for at least 90% of the test set), run this from `backend/`:
 
 ```bash
-uv run python -m scripts.check_extraction /path/to/test-resumes
+uv run python -m scripts.check_extraction ../test-resumes
 ```
 
 To check which sections (contact, summary, experience, education, skills) HireLens finds in the same set (DP-20), run:
 
 ```bash
-uv run python -m scripts.check_sections /path/to/test-resumes
+uv run python -m scripts.check_sections ../test-resumes
 ```
 
 ## How the ATS score works
