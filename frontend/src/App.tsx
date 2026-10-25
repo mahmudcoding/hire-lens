@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { UploadedResume } from './api.ts'
 import { AtsScore } from './AtsScore.tsx'
+import { ConsentNotice } from './ConsentNotice.tsx'
 import { ExtractedText } from './ExtractedText.tsx'
 import { HiringChance } from './HiringChance.tsx'
 import { JobDescription } from './JobDescription.tsx'
@@ -10,6 +11,7 @@ import { ResumeUpload } from './ResumeUpload.tsx'
 function App() {
   const [resume, setResume] = useState<UploadedResume | null>(null)
   const [jobDescription, setJobDescription] = useState('')
+  const [consentGiven, setConsentGiven] = useState(false)
 
   return (
     <main className="app">
@@ -18,7 +20,8 @@ function App() {
         <p>Check your resume the way an Applicant Tracking System would.</p>
       </header>
       <JobDescription value={jobDescription} onChange={setJobDescription} />
-      <ResumeUpload onResumeChange={setResume} />
+      <ConsentNotice checked={consentGiven} onChange={setConsentGiven} />
+      <ResumeUpload consentGiven={consentGiven} onResumeChange={setResume} />
       {resume && (
         <>
           <AtsScore key={`score-${resume.id}`} resume={resume} />

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -63,6 +63,7 @@ describe('App', () => {
     render(<App />)
 
     expect(screen.getByRole('textbox', { name: 'Job description' })).toHaveValue('')
+    await user.click(screen.getByRole('checkbox', { name: /privacy notice/ }))
     await user.upload(
       screen.getByLabelText('Resume file'),
       new File(['%PDF-1.7'], 'resume.pdf', { type: 'application/pdf' }),
@@ -85,6 +86,7 @@ describe('App', () => {
 
     await user.click(box)
     await user.paste('Backend developer')
+    await user.click(screen.getByRole('checkbox', { name: /privacy notice/ }))
     await user.upload(
       screen.getByLabelText('Resume file'),
       new File(['%PDF-1.7'], 'resume.pdf', { type: 'application/pdf' }),
@@ -96,5 +98,28 @@ describe('App', () => {
       await screen.findByRole('list', { name: 'Missing keywords' }, { timeout: 2000 }),
     ).toHaveTextContent('Backend')
     expect(matchKeywords).toHaveBeenCalledWith('abc', 'Backend developer', expect.any(AbortSignal))
+  })
+
+  it('blocks the upload until the privacy notice is accepted (DP-30)', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    expect(screen.getByRole('button', { name: 'Choose a file' })).toBeDisabled()
+    fireEvent.drop(screen.getByTestId('dropzone'), {
+      dataTransfer: { files: [new File(['%PDF-1.7'], 'resume.pdf', { type: 'application/pdf' })] },
+    })
+    expect(
+      await screen.findByText(/accept the privacy notice above before uploading/i),
+    ).toBeInTheDocument()
+    expect(uploadResume).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('checkbox', { name: /privacy notice/ }))
+
+    expect(screen.getByRole('button', { name: 'Choose a file' })).toBeEnabled()
+    await user.upload(
+      screen.getByLabelText('Resume file'),
+      new File(['%PDF-1.7'], 'resume.pdf', { type: 'application/pdf' }),
+    )
+    expect(await screen.findByText('resume.pdf uploaded.')).toBeInTheDocument()
   })
 })
