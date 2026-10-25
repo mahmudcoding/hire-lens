@@ -1,15 +1,19 @@
 """Temporary storage for uploaded resumes, keyed by a random ID.
 
-Encryption at rest (DP-19) and deletion after 24 hours (DP-29) come later.
+Encryption at rest (DP-19) comes later. Resumes are deleted automatically
+after 24 hours (DP-29); extracted text is never written to disk (it's
+re-extracted from the resume file on every request, see app.extraction),
+so deleting the resume file is enough to cover that too.
 """
 
 import os
 import re
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.config import STORAGE_DIR
+from app.config import RESUME_LIFETIME_SECONDS, STORAGE_DIR
 
 FILE_TYPES = ("pdf", "docx")
 _ID_PATTERN = re.compile(r"[0-9a-f]{32}")
@@ -50,6 +54,25 @@ class ResumeStorage:
                 if path.is_file():
                     return StoredResume(id=resume_id, file_type=file_type, path=path)
         raise ResumeNotFound(resume_id)
+
+    def delete_expired(self, now: float | None = None) -> int:
+        """Delete resumes older than RESUME_LIFETIME_SECONDS. Returns how many were removed."""
+        if now is None:
+            now = time.time()
+        if not self.root.is_dir():
+            return 0
+        removed = 0
+        for path in self.root.iterdir():
+            if not path.is_file():
+                continue
+            try:
+                age_seconds = now - path.stat().st_mtime
+            except FileNotFoundError:
+                continue  # Deleted by someone else between iterdir() and stat().
+            if age_seconds >= RESUME_LIFETIME_SECONDS:
+                path.unlink(missing_ok=True)
+                removed += 1
+        return removed
 
 
 def get_storage() -> ResumeStorage:

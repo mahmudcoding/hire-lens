@@ -14,3 +14,11 @@ MAX_JOB_DESCRIPTION_LENGTH = 10_000
 
 # Where uploaded resumes are kept until they are analyzed.
 STORAGE_DIR = Path(os.environ.get("HIRELENS_STORAGE_DIR", BACKEND_DIR / "storage"))
+
+# A resume is deleted once it's this old (NFR-02 / DP-29).
+RESUME_LIFETIME_SECONDS = 24 * 60 * 60
+
+# How often the cleanup job checks for resumes to delete.
+CLEANUP_INTERVAL_SECONDS = float(
+    os.environ.get("HIRELENS_CLEANUP_INTERVAL_SECONDS", 60 * 60)
+)
