@@ -79,6 +79,7 @@ backend/                  FastAPI app (Python, managed by uv)
   tests/                  pytest tests
 frontend/                 React + TypeScript app (Vite)
   src/
+docs/                     user guide and demo script (DP-36)
 .github/workflows/ci.yml  runs tests, lint and build on every push
 ```
 
