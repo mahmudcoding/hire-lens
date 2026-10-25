@@ -55,6 +55,20 @@ export type HiringChance = {
   factors: HiringFactor[]
 }
 
+export type Suggestion = {
+  code: string
+  title: string
+  explanation: string
+  /** Estimated percentage points the hiring chance would rise by if this, alone, were fixed. */
+  gain: number
+}
+
+export type Suggestions = {
+  id: string
+  /** Biggest estimated gain first. */
+  suggestions: Suggestion[]
+}
+
 export class ApiError extends Error {}
 
 const CONNECTION_PROBLEM = "Couldn't reach the server. Check your connection and try again."
@@ -146,6 +160,28 @@ export function getHiringChance(
   return requestJson(
     `/api/resumes/${encodeURIComponent(id)}/hiring-chance`,
     'Something went wrong while estimating your hiring chance. Please try again.',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_description: jobDescription }),
+      signal,
+    },
+  )
+}
+
+/**
+ * Lists fixes for an uploaded resume, biggest estimated hiring-chance gain
+ * first. The job description is optional: without one there are no keyword
+ * suggestions, since there is nothing to match the resume against.
+ */
+export function getSuggestions(
+  id: string,
+  jobDescription: string,
+  signal?: AbortSignal,
+): Promise<Suggestions> {
+  return requestJson(
+    `/api/resumes/${encodeURIComponent(id)}/suggestions`,
+    'Something went wrong while listing suggestions for your resume. Please try again.',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
