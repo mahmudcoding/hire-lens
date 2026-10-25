@@ -6,6 +6,7 @@ import { HiringChance } from './HiringChance.tsx'
 import { JobDescription } from './JobDescription.tsx'
 import { KeywordMatch } from './KeywordMatch.tsx'
 import { ResumeUpload } from './ResumeUpload.tsx'
+import { Suggestions } from './Suggestions.tsx'
 
 function App() {
   const [resume, setResume] = useState<UploadedResume | null>(null)
@@ -29,6 +30,11 @@ function App() {
           />
           <HiringChance
             key={`chance-${resume.id}`}
+            resume={resume}
+            jobDescription={jobDescription}
+          />
+          <Suggestions
+            key={`suggestions-${resume.id}`}
             resume={resume}
             jobDescription={jobDescription}
           />
