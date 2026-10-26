@@ -49,6 +49,11 @@ describe('App', () => {
       deductions: [],
     })
     vi.mocked(getResumeText).mockResolvedValue({ id: 'abc', text: 'Jane Doe' })
+    vi.mocked(getResumeSections).mockResolvedValue({
+      id: 'abc',
+      sections: [{ name: 'contact', heading: null, text: 'jane@example.com' }],
+      missing: ['summary', 'experience', 'education', 'skills'],
+    })
     vi.mocked(getHiringChance).mockResolvedValue({
       id: 'abc',
       percentage: 64,

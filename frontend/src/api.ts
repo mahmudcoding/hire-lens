@@ -51,6 +51,8 @@ export type ResumeSections = {
   sections: ResumeSection[]
   /** The sections not found, in the same order. */
   missing: SectionName[]
+}
+
 export type HiringFactor = {
   code: string
   title: string
