@@ -1,8 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getAtsScore,
+  getResumeSections,
   getHiringChance,
   getResumeText,
   matchKeywords,
@@ -14,6 +16,7 @@ import App from './App.tsx'
 vi.mock('./api.ts', () => ({
   uploadResume: vi.fn(),
   getAtsScore: vi.fn(),
+  getResumeSections: vi.fn(),
   getResumeText: vi.fn(),
   getHiringChance: vi.fn(),
   matchKeywords: vi.fn(),
@@ -26,6 +29,16 @@ const stored: UploadedResume = {
   size_bytes: 8,
 }
 
+const pdf = () => new File(['%PDF-1.7'], 'resume.pdf', { type: 'application/pdf' })
+
+function renderApp(path = '/') {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <App />
+    </MemoryRouter>,
+  )
+}
+
 describe('App', () => {
   beforeEach(() => {
     vi.mocked(uploadResume).mockResolvedValue(stored)
@@ -36,6 +49,11 @@ describe('App', () => {
       deductions: [],
     })
     vi.mocked(getResumeText).mockResolvedValue({ id: 'abc', text: 'Jane Doe' })
+    vi.mocked(getResumeSections).mockResolvedValue({
+      id: 'abc',
+      sections: [{ name: 'contact', heading: null, text: 'jane@example.com' }],
+      missing: ['summary', 'experience', 'education', 'skills'],
+    })
     vi.mocked(getHiringChance).mockResolvedValue({
       id: 'abc',
       percentage: 64,
@@ -52,22 +70,49 @@ describe('App', () => {
     })
   })
 
-  it('shows the product name', () => {
-    render(<App />)
+  it('shows the product name and opens on the main page', () => {
+    renderApp()
 
-    expect(screen.getByRole('heading', { name: 'HireLens' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'HireLens.' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Check your resume' })).toBeInTheDocument()
+  })
+
+  it('opens the History and Profile pages from the navigation bar', async () => {
+    const user = userEvent.setup()
+    renderApp()
+
+    await user.click(screen.getByRole('link', { name: 'History' }))
+    expect(screen.getByRole('heading', { name: 'History' })).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Job description' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('link', { name: 'Profile' }))
+    expect(screen.getByRole('heading', { name: 'Profile' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('link', { name: 'Home' }))
+    expect(screen.getByRole('textbox', { name: 'Job description' })).toBeInTheDocument()
+  })
+
+  it('keeps the results after a visit to another page', async () => {
+    const user = userEvent.setup()
+    renderApp()
+
+    await user.click(screen.getByRole('checkbox', { name: /privacy notice/ }))
+    await user.upload(screen.getByLabelText('Resume file'), pdf())
+    expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('link', { name: 'Profile' }))
+    await user.click(screen.getByRole('link', { name: 'Home' }))
+
+    expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
   })
 
   it('analyses the resume when the job description is left empty', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderApp()
 
     expect(screen.getByRole('textbox', { name: 'Job description' })).toHaveValue('')
     await user.click(screen.getByRole('checkbox', { name: /privacy notice/ }))
-    await user.upload(
-      screen.getByLabelText('Resume file'),
-      new File(['%PDF-1.7'], 'resume.pdf', { type: 'application/pdf' }),
-    )
+    await user.upload(screen.getByLabelText('Resume file'), pdf())
 
     expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
     expect(getAtsScore).toHaveBeenCalledWith('abc', expect.any(AbortSignal))
@@ -81,16 +126,13 @@ describe('App', () => {
 
   it('keeps the pasted job description when another resume is uploaded', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderApp()
     const box = screen.getByRole('textbox', { name: 'Job description' })
 
     await user.click(box)
     await user.paste('Backend developer')
     await user.click(screen.getByRole('checkbox', { name: /privacy notice/ }))
-    await user.upload(
-      screen.getByLabelText('Resume file'),
-      new File(['%PDF-1.7'], 'resume.pdf', { type: 'application/pdf' }),
-    )
+    await user.upload(screen.getByLabelText('Resume file'), pdf())
 
     expect(await screen.findByText('resume.pdf uploaded.')).toBeInTheDocument()
     expect(box).toHaveValue('Backend developer')
@@ -102,7 +144,7 @@ describe('App', () => {
 
   it('blocks the upload until the privacy notice is accepted (DP-30)', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderApp()
 
     expect(screen.getByRole('button', { name: 'Choose a file' })).toBeDisabled()
     fireEvent.drop(screen.getByTestId('dropzone'), {

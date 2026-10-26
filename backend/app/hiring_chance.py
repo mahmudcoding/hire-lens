@@ -174,7 +174,7 @@ def _sections_factor(sections: ResumeSections) -> Factor:
 
 
 def _achievements_factor(sections: ResumeSections) -> Factor:
-    count = count_achievements(_section_text(sections, "experience"))
+    count = count_achievements(section_text(sections, "experience"))
     if count == 0:
         explanation = (
             "No experience line has a number. Show results with figures, "
@@ -195,7 +195,7 @@ def _achievements_factor(sections: ResumeSections) -> Factor:
 
 
 def _skills_factor(sections: ResumeSections) -> Factor:
-    count = count_skills(_section_text(sections, "skills"))
+    count = count_skills(section_text(sections, "skills"))
     if count == 0:
         explanation = "No skills are listed. Add a skills section with your main tools and skills."
     else:
@@ -229,5 +229,6 @@ def _share_weights(factors: list[Factor]) -> list[Factor]:
     ]
 
 
-def _section_text(sections: ResumeSections, name: str) -> str:
+def section_text(sections: ResumeSections, name: str) -> str:
+    """Return a found section's text, or "" if it's missing. Also used by app.suggestions."""
     return next((section.text for section in sections.sections if section.name == name), "")
