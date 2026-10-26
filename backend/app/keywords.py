@@ -132,9 +132,19 @@ def match_keywords(resume_text: str, job_description: str) -> KeywordMatch:
         (matched if found else missing).append(text)
 
     total = len(matched) + len(missing)
-    # Rounded half up, so 1 of 8 keywords is 13%, not 12%.
-    percentage = (200 * len(matched) + total) // (2 * total) if total else 0
-    return KeywordMatch(percentage=percentage, matched=matched, missing=missing)
+    return KeywordMatch(
+        percentage=percentage_for(len(matched), total), matched=matched, missing=missing
+    )
+
+
+def percentage_for(matched_count: int, total: int) -> int:
+    """Share of total keywords that matched_count represents, 0 to 100.
+
+    Rounded half up, so 1 of 8 keywords is 13%, not 12%. Exposed so other
+    modules (app.suggestions) can work out how much the percentage would
+    move if one more keyword were matched, without duplicating the formula.
+    """
+    return (200 * matched_count + total) // (2 * total) if total else 0
 
 
 def _keywords(job_description: str) -> list[tuple[str, tuple[str, ...]]]:
