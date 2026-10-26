@@ -36,6 +36,23 @@ export type KeywordMatch = {
   explanation: string
 }
 
+export type SectionName = 'contact' | 'summary' | 'experience' | 'education' | 'skills'
+
+export type ResumeSection = {
+  name: SectionName
+  /** The heading as written in the resume, or null when the section had none. */
+  heading: string | null
+  text: string
+}
+
+export type ResumeSections = {
+  id: string
+  /** The sections found, in the order an ATS expects them. */
+  sections: ResumeSection[]
+  /** The sections not found, in the same order. */
+  missing: SectionName[]
+}
+
 export type HiringFactor = {
   code: string
   title: string
@@ -53,6 +70,20 @@ export type HiringChance = {
   level: 'Low' | 'Medium' | 'High'
   /** The factors behind the percentage. */
   factors: HiringFactor[]
+}
+
+export type Suggestion = {
+  code: string
+  title: string
+  explanation: string
+  /** Estimated percentage points the hiring chance would rise by if this, alone, were fixed. */
+  gain: number
+}
+
+export type Suggestions = {
+  id: string
+  /** Biggest estimated gain first. */
+  suggestions: Suggestion[]
 }
 
 export class ApiError extends Error {}
@@ -116,6 +147,15 @@ export function getAtsScore(id: string, signal?: AbortSignal): Promise<AtsScore>
   )
 }
 
+/** Fetches which of the five sections an ATS looks for were found in an uploaded resume. */
+export function getResumeSections(id: string, signal?: AbortSignal): Promise<ResumeSections> {
+  return requestJson(
+    `/api/resumes/${encodeURIComponent(id)}/sections`,
+    'Something went wrong while looking for the sections of your resume. Please try again.',
+    { signal },
+  )
+}
+
 /** Compares an uploaded resume with a job description's keywords. */
 export function matchKeywords(
   id: string,
@@ -146,6 +186,28 @@ export function getHiringChance(
   return requestJson(
     `/api/resumes/${encodeURIComponent(id)}/hiring-chance`,
     'Something went wrong while estimating your hiring chance. Please try again.',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_description: jobDescription }),
+      signal,
+    },
+  )
+}
+
+/**
+ * Lists fixes for an uploaded resume, biggest estimated hiring-chance gain
+ * first. The job description is optional: without one there are no keyword
+ * suggestions, since there is nothing to match the resume against.
+ */
+export function getSuggestions(
+  id: string,
+  jobDescription: string,
+  signal?: AbortSignal,
+): Promise<Suggestions> {
+  return requestJson(
+    `/api/resumes/${encodeURIComponent(id)}/suggestions`,
+    'Something went wrong while listing suggestions for your resume. Please try again.',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

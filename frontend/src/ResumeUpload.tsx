@@ -10,18 +10,31 @@ type UploadState =
   | { status: 'error'; message: string }
 
 type Props = {
+  /** Whether the candidate has ticked the privacy notice's consent checkbox (DP-30). */
+  consentGiven: boolean
   /** Called with the stored resume after an upload, and with null when a new file is picked. */
   onResumeChange: (resume: UploadedResume | null) => void
 }
 
-export function ResumeUpload({ onResumeChange }: Props) {
+export function ResumeUpload({ consentGiven, onResumeChange }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [state, setState] = useState<UploadState>({ status: 'idle' })
   const [isDragging, setIsDragging] = useState(false)
   const isUploading = state.status === 'uploading'
+  // Checked here too, not just by disabling the controls below, so a file
+  // dropped on the drop zone can't skip the consent gate.
+  const isBlocked = !consentGiven
+  const isDisabled = isUploading || isBlocked
 
   async function handleFile(file: File) {
     onResumeChange(null)
+    if (isBlocked) {
+      setState({
+        status: 'error',
+        message: 'Please accept the privacy notice above before uploading your resume.',
+      })
+      return
+    }
     const problem = checkResumeFile(file)
     if (problem) {
       setState({ status: 'error', message: problem })
@@ -50,7 +63,7 @@ export function ResumeUpload({ onResumeChange }: Props) {
 
   function handleDragOver(event: DragEvent<HTMLDivElement>) {
     event.preventDefault()
-    if (!isUploading) setIsDragging(true)
+    if (!isDisabled) setIsDragging(true)
   }
 
   function handleDragLeave(event: DragEvent<HTMLDivElement>) {
@@ -70,18 +83,23 @@ export function ResumeUpload({ onResumeChange }: Props) {
   return (
     <section className="upload" aria-label="Upload your resume">
       <div
-        className={isDragging ? 'dropzone is-dragging' : 'dropzone'}
+        className={`dropzone${isDragging ? ' is-dragging' : ''}${isBlocked ? ' is-blocked' : ''}`}
         data-testid="dropzone"
+        aria-disabled={isBlocked}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
         <p className="dropzone-title">Drop your resume here</p>
-        <p className="dropzone-hint">PDF or DOCX, up to 5 MB</p>
+        <p className="dropzone-hint">
+          {isBlocked
+            ? 'Accept the privacy notice above to enable uploads'
+            : 'PDF or DOCX, up to 5 MB'}
+        </p>
         <button
           type="button"
           className="upload-button"
-          disabled={isUploading}
+          disabled={isDisabled}
           onClick={() => inputRef.current?.click()}
         >
           Choose a file
@@ -92,6 +110,7 @@ export function ResumeUpload({ onResumeChange }: Props) {
           accept=".pdf,.docx"
           aria-label="Resume file"
           hidden
+          disabled={isDisabled}
           onChange={handleChange}
         />
       </div>

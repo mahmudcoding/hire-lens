@@ -92,7 +92,7 @@
 }
 
 .ats-problem-points {
-  color: var(--danger);
+  color: var(--danger-soft-foreground);
   font-weight: 600;
   white-space: nowrap;
 }

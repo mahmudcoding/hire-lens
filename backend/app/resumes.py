@@ -12,6 +12,7 @@ from app.hiring_chance import calculate_hiring_chance
 from app.keywords import match_keywords
 from app.sections import detect_sections
 from app.storage import ResumeNotFound, ResumeStorage, ResumeUnreadable, StoredResume, get_storage
+from app.suggestions import generate_suggestions
 
 router = APIRouter(prefix="/api/resumes", tags=["resumes"])
 
@@ -94,6 +95,18 @@ class ResumeHiringChance(BaseModel):
     percentage: int
     level: str
     factors: list[FactorOut]
+
+
+class SuggestionOut(BaseModel):
+    code: str
+    title: str
+    explanation: str
+    gain: int
+
+
+class ResumeSuggestions(BaseModel):
+    id: str
+    suggestions: list[SuggestionOut]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -259,6 +272,40 @@ def estimate_hiring_chance(
                 explanation=factor.explanation,
             )
             for factor in result.factors
+        ],
+    )
+
+
+@router.post("/{resume_id}/suggestions")
+def get_resume_suggestions(
+    resume_id: str,
+    body: OptionalJobDescriptionIn,
+    storage: Annotated[ResumeStorage, Depends(get_storage)],
+) -> ResumeSuggestions:
+    """List fixes for the resume, biggest estimated hiring-chance gain first.
+
+    The job description is optional. Without one there are no keyword
+    suggestions, since there is nothing to match the resume against.
+    """
+    stored, data, text = _read_resume(resume_id, storage)
+    ats_score = calculate_ats_score(check_format(data, stored.file_type, text))
+    sections = detect_sections(text)
+    keyword_match = (
+        match_keywords(text, body.job_description) if body.job_description.strip() else None
+    )
+    keyword_percentage = keyword_match.percentage if keyword_match is not None else None
+    hiring_chance = calculate_hiring_chance(ats_score.score, sections, keyword_percentage)
+    suggestions = generate_suggestions(ats_score, hiring_chance, sections, keyword_match)
+    return ResumeSuggestions(
+        id=stored.id,
+        suggestions=[
+            SuggestionOut(
+                code=suggestion.code,
+                title=suggestion.title,
+                explanation=suggestion.explanation,
+                gain=suggestion.gain,
+            )
+            for suggestion in suggestions
         ],
     )
 
