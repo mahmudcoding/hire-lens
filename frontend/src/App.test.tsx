@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getAtsScore,
+  getResumeSections,
   getResumeText,
   matchKeywords,
   uploadResume,
@@ -14,6 +15,7 @@ import App from './App.tsx'
 vi.mock('./api.ts', () => ({
   uploadResume: vi.fn(),
   getAtsScore: vi.fn(),
+  getResumeSections: vi.fn(),
   getResumeText: vi.fn(),
   matchKeywords: vi.fn(),
 }))
@@ -45,6 +47,11 @@ describe('App', () => {
       deductions: [],
     })
     vi.mocked(getResumeText).mockResolvedValue({ id: 'abc', text: 'Jane Doe' })
+    vi.mocked(getResumeSections).mockResolvedValue({
+      id: 'abc',
+      sections: [{ name: 'contact', heading: null, text: 'jane@example.com' }],
+      missing: ['summary', 'experience', 'education', 'skills'],
+    })
     vi.mocked(matchKeywords).mockReset()
     vi.mocked(matchKeywords).mockResolvedValue({
       id: 'abc',

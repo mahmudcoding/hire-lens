@@ -55,6 +55,12 @@ uv run python -m scripts.check_sections /path/to/test-resumes
 
 The results page shows the match percentage, then the missing keywords (most important first) and, separately, the keywords the resume already has. It matches again a moment after the job description is edited. With no job description it says there is nothing to match.
 
+## Which sections are found
+
+`GET /api/resumes/{id}/sections` splits a resume into the five sections an ATS looks for: contact, summary, experience, education and skills. Like an ATS, HireLens finds them by their headings, so a section without a heading it recognises counts as missing. The headings it recognises are listed in `backend/app/sections.py`.
+
+The results page shows the five sections as chips, found ones in mint and missing ones in maroon, with the count found and a tip on how to add each missing one.
+
 ## Pages
 
 The bar at the top of every page links to three pages:
