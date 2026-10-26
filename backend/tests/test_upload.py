@@ -35,7 +35,7 @@ def test_pdf_upload_returns_an_id_the_parser_can_read(client, storage):
     assert body["filename"] == "resume.pdf"
     assert body["file_type"] == "pdf"
     assert body["size_bytes"] == len(PDF_BYTES)
-    assert storage.get(body["id"]).path.read_bytes() == PDF_BYTES
+    assert storage.read_bytes(storage.get(body["id"])) == PDF_BYTES
 
 
 def test_docx_upload_is_accepted_whatever_the_extension_case(client, storage):
@@ -44,7 +44,7 @@ def test_docx_upload_is_accepted_whatever_the_extension_case(client, storage):
     assert response.status_code == 201
     body = response.json()
     assert body["file_type"] == "docx"
-    assert storage.get(body["id"]).path.read_bytes() == DOCX_BYTES
+    assert storage.read_bytes(storage.get(body["id"])) == DOCX_BYTES
 
 
 @pytest.mark.parametrize(

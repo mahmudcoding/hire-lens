@@ -1,6 +1,7 @@
 import pytest
+from cryptography.fernet import Fernet
 
-from app.storage import ResumeNotFound
+from app.storage import ResumeNotFound, ResumeStorage, ResumeUnreadable
 
 
 def test_saved_resume_can_be_read_back(storage):
@@ -9,7 +10,27 @@ def test_saved_resume_can_be_read_back(storage):
     found = storage.get(saved.id)
 
     assert found == saved
-    assert found.path.read_bytes() == b"%PDF-1.7 resume"
+    assert storage.read_bytes(found) == b"%PDF-1.7 resume"
+
+
+def test_stored_files_are_encrypted_on_disk(storage):
+    """NFR-01 / DP-19: the file on disk is never the plain bytes that were saved."""
+    saved = storage.save(b"%PDF-1.7 resume, with definitely-identifying content", "pdf")
+
+    on_disk = saved.path.read_bytes()
+
+    assert b"PDF-1.7" not in on_disk
+    assert b"identifying" not in on_disk
+    assert on_disk != b"%PDF-1.7 resume, with definitely-identifying content"
+
+
+def test_a_resume_cannot_be_decrypted_with_the_wrong_key(tmp_path):
+    storage = ResumeStorage(tmp_path / "storage", Fernet(Fernet.generate_key()))
+    saved = storage.save(b"%PDF-1.7 resume", "pdf")
+    other_storage = ResumeStorage(tmp_path / "storage", Fernet(Fernet.generate_key()))
+
+    with pytest.raises(ResumeUnreadable):
+        other_storage.read_bytes(saved)
 
 
 def test_each_resume_gets_its_own_id(storage):

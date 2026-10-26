@@ -11,7 +11,7 @@ from app.format_checks import check_format
 from app.hiring_chance import calculate_hiring_chance
 from app.keywords import match_keywords
 from app.sections import detect_sections
-from app.storage import ResumeNotFound, ResumeStorage, StoredResume, get_storage
+from app.storage import ResumeNotFound, ResumeStorage, ResumeUnreadable, StoredResume, get_storage
 from app.suggestions import generate_suggestions
 
 router = APIRouter(prefix="/api/resumes", tags=["resumes"])
@@ -145,7 +145,7 @@ def get_resume_text(
     storage: Annotated[ResumeStorage, Depends(get_storage)],
 ) -> ResumeText:
     """Return the plain text found in an uploaded resume."""
-    stored, text = _read_resume(resume_id, storage)
+    stored, _data, text = _read_resume(resume_id, storage)
     return ResumeText(id=stored.id, text=text)
 
 
@@ -155,7 +155,7 @@ def get_resume_sections(
     storage: Annotated[ResumeStorage, Depends(get_storage)],
 ) -> ResumeSectionsOut:
     """Split an uploaded resume into contact, summary, experience, education and skills."""
-    stored, text = _read_resume(resume_id, storage)
+    stored, _data, text = _read_resume(resume_id, storage)
     result = detect_sections(text)
     return ResumeSectionsOut(
         id=stored.id,
@@ -173,14 +173,14 @@ def get_resume_format_checks(
     storage: Annotated[ResumeStorage, Depends(get_storage)],
 ) -> ResumeFormatChecks:
     """List what in an uploaded resume's format could confuse an ATS, with explanations."""
-    stored, text = _read_resume(resume_id, storage)
+    stored, data, text = _read_resume(resume_id, storage)
     return ResumeFormatChecks(
         id=stored.id,
         problems=[
             FormatProblemOut(
                 code=problem.code, title=problem.title, explanation=problem.explanation
             )
-            for problem in check_format(stored.path, stored.file_type, text)
+            for problem in check_format(data, stored.file_type, text)
         ],
     )
 
@@ -191,8 +191,8 @@ def get_resume_ats_score(
     storage: Annotated[ResumeStorage, Depends(get_storage)],
 ) -> ResumeAtsScore:
     """Score an uploaded resume from 0 to 100 and explain what each format problem cost."""
-    stored, text = _read_resume(resume_id, storage)
-    result = calculate_ats_score(check_format(stored.path, stored.file_type, text))
+    stored, data, text = _read_resume(resume_id, storage)
+    result = calculate_ats_score(check_format(data, stored.file_type, text))
     return ResumeAtsScore(
         id=stored.id,
         score=result.score,
@@ -221,7 +221,7 @@ def match_resume_keywords(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "Paste a job description to compare your resume with.",
         )
-    stored, text = _read_resume(resume_id, storage)
+    stored, _data, text = _read_resume(resume_id, storage)
     result = match_keywords(text, body.job_description)
     total = len(result.matched) + len(result.missing)
     if total:
@@ -251,8 +251,8 @@ def estimate_hiring_chance(
     The job description is optional. Without one, the keyword match is left out
     and its weight is shared among the other factors.
     """
-    stored, text = _read_resume(resume_id, storage)
-    ats_score = calculate_ats_score(check_format(stored.path, stored.file_type, text)).score
+    stored, data, text = _read_resume(resume_id, storage)
+    ats_score = calculate_ats_score(check_format(data, stored.file_type, text)).score
     keyword_percentage = (
         match_keywords(text, body.job_description).percentage
         if body.job_description.strip()
@@ -287,8 +287,8 @@ def get_resume_suggestions(
     The job description is optional. Without one there are no keyword
     suggestions, since there is nothing to match the resume against.
     """
-    stored, text = _read_resume(resume_id, storage)
-    ats_score = calculate_ats_score(check_format(stored.path, stored.file_type, text))
+    stored, data, text = _read_resume(resume_id, storage)
+    ats_score = calculate_ats_score(check_format(data, stored.file_type, text))
     sections = detect_sections(text)
     keyword_match = (
         match_keywords(text, body.job_description) if body.job_description.strip() else None
@@ -310,7 +310,7 @@ def get_resume_suggestions(
     )
 
 
-def _read_resume(resume_id: str, storage: ResumeStorage) -> tuple[StoredResume, str]:
+def _read_resume(resume_id: str, storage: ResumeStorage) -> tuple[StoredResume, bytes, str]:
     try:
         stored = storage.get(resume_id)
     except ResumeNotFound:
@@ -320,7 +320,17 @@ def _read_resume(resume_id: str, storage: ResumeStorage) -> tuple[StoredResume, 
         ) from None
 
     try:
-        text = extract_text(stored.path, stored.file_type)
+        data = storage.read_bytes(stored)
+    except ResumeUnreadable:
+        # Only happens if the encryption key changed since this resume was
+        # saved (DP-19) - re-uploading is the only way forward either way.
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            "We couldn't find that resume. Please upload it again.",
+        ) from None
+
+    try:
+        text = extract_text(data, stored.file_type)
     except UnreadableResume as error:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(error)) from None
-    return stored, text
+    return stored, data, text
