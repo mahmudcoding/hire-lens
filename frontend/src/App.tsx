@@ -5,6 +5,12 @@ import { HistoryPage } from './HistoryPage.tsx'
 import { HomePage } from './HomePage.tsx'
 import { Navbar } from './Navbar.tsx'
 import { ProfilePage } from './ProfilePage.tsx'
+import { AtsScore } from './AtsScore.tsx'
+import { ExtractedText } from './ExtractedText.tsx'
+import { HiringChance } from './HiringChance.tsx'
+import { JobDescription } from './JobDescription.tsx'
+import { KeywordMatch } from './KeywordMatch.tsx'
+import { ResumeUpload } from './ResumeUpload.tsx'
 
 function App() {
   // Kept here rather than in HomePage so the results survive a visit to another page.

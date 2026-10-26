@@ -51,6 +51,23 @@ export type ResumeSections = {
   sections: ResumeSection[]
   /** The sections not found, in the same order. */
   missing: SectionName[]
+export type HiringFactor = {
+  code: string
+  title: string
+  /** The factor's own score, 0 to 100. */
+  score: number
+  /** The share of the hiring chance this factor counted for, in percent. */
+  weight: number
+  explanation: string
+}
+
+export type HiringChance = {
+  id: string
+  /** The estimated chance of getting hired, 0 to 100. */
+  percentage: number
+  level: 'Low' | 'Medium' | 'High'
+  /** The factors behind the percentage. */
+  factors: HiringFactor[]
 }
 
 export class ApiError extends Error {}
@@ -132,6 +149,27 @@ export function matchKeywords(
   return requestJson(
     `/api/resumes/${encodeURIComponent(id)}/keyword-match`,
     'Something went wrong while matching your resume with the job description. Please try again.',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_description: jobDescription }),
+      signal,
+    },
+  )
+}
+
+/**
+ * Estimates the chance of getting hired with an uploaded resume. The job
+ * description is optional: without one the keyword match is left out.
+ */
+export function getHiringChance(
+  id: string,
+  jobDescription: string,
+  signal?: AbortSignal,
+): Promise<HiringChance> {
+  return requestJson(
+    `/api/resumes/${encodeURIComponent(id)}/hiring-chance`,
+    'Something went wrong while estimating your hiring chance. Please try again.',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

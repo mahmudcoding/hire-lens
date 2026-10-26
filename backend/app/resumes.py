@@ -8,6 +8,7 @@ from app.config import MAX_JOB_DESCRIPTION_LENGTH, MAX_UPLOAD_BYTES
 from app.extraction import UnreadableResume, extract_text
 from app.file_types import UnsupportedFileType, detect_file_type
 from app.format_checks import check_format
+from app.hiring_chance import calculate_hiring_chance
 from app.keywords import match_keywords
 from app.sections import detect_sections
 from app.storage import ResumeNotFound, ResumeStorage, StoredResume, get_storage
@@ -74,6 +75,25 @@ class ResumeKeywordMatch(BaseModel):
     matched: list[str]
     missing: list[str]
     explanation: str
+
+
+class OptionalJobDescriptionIn(BaseModel):
+    job_description: str = Field(default="", max_length=MAX_JOB_DESCRIPTION_LENGTH)
+
+
+class FactorOut(BaseModel):
+    code: str
+    title: str
+    score: int
+    weight: int
+    explanation: str
+
+
+class ResumeHiringChance(BaseModel):
+    id: str
+    percentage: int
+    level: str
+    factors: list[FactorOut]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -204,6 +224,42 @@ def match_resume_keywords(
         matched=result.matched,
         missing=result.missing,
         explanation=explanation,
+    )
+
+
+@router.post("/{resume_id}/hiring-chance")
+def estimate_hiring_chance(
+    resume_id: str,
+    body: OptionalJobDescriptionIn,
+    storage: Annotated[ResumeStorage, Depends(get_storage)],
+) -> ResumeHiringChance:
+    """Estimate the chance of getting hired, Low, Medium or High, and show each factor.
+
+    The job description is optional. Without one, the keyword match is left out
+    and its weight is shared among the other factors.
+    """
+    stored, text = _read_resume(resume_id, storage)
+    ats_score = calculate_ats_score(check_format(stored.path, stored.file_type, text)).score
+    keyword_percentage = (
+        match_keywords(text, body.job_description).percentage
+        if body.job_description.strip()
+        else None
+    )
+    result = calculate_hiring_chance(ats_score, detect_sections(text), keyword_percentage)
+    return ResumeHiringChance(
+        id=stored.id,
+        percentage=result.percentage,
+        level=result.level,
+        factors=[
+            FactorOut(
+                code=factor.code,
+                title=factor.title,
+                score=factor.score,
+                weight=factor.weight,
+                explanation=factor.explanation,
+            )
+            for factor in result.factors
+        ],
     )
 
 

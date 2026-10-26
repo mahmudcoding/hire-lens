@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getAtsScore,
   getResumeSections,
+  getHiringChance,
   getResumeText,
   matchKeywords,
   uploadResume,
@@ -17,6 +18,7 @@ vi.mock('./api.ts', () => ({
   getAtsScore: vi.fn(),
   getResumeSections: vi.fn(),
   getResumeText: vi.fn(),
+  getHiringChance: vi.fn(),
   matchKeywords: vi.fn(),
 }))
 
@@ -47,10 +49,11 @@ describe('App', () => {
       deductions: [],
     })
     vi.mocked(getResumeText).mockResolvedValue({ id: 'abc', text: 'Jane Doe' })
-    vi.mocked(getResumeSections).mockResolvedValue({
+    vi.mocked(getHiringChance).mockResolvedValue({
       id: 'abc',
-      sections: [{ name: 'contact', heading: null, text: 'jane@example.com' }],
-      missing: ['summary', 'experience', 'education', 'skills'],
+      percentage: 64,
+      level: 'Medium',
+      factors: [],
     })
     vi.mocked(matchKeywords).mockReset()
     vi.mocked(matchKeywords).mockResolvedValue({
@@ -108,6 +111,10 @@ describe('App', () => {
     expect(getAtsScore).toHaveBeenCalledWith('abc', expect.any(AbortSignal))
     expect(screen.getByText(/No job description was given/)).toBeInTheDocument()
     expect(matchKeywords).not.toHaveBeenCalled()
+    expect(
+      await screen.findByLabelText('Medium hiring chance, 64%', {}, { timeout: 2000 }),
+    ).toBeInTheDocument()
+    expect(getHiringChance).toHaveBeenCalledWith('abc', '', expect.any(AbortSignal))
   })
 
   it('keeps the pasted job description when another resume is uploaded', async () => {
