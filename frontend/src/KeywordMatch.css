@@ -65,11 +65,11 @@
 .keyword-list.is-missing li {
   border-color: var(--danger);
   background: var(--danger-soft);
-  color: var(--danger);
+  color: var(--danger-soft-foreground);
 }
 
 .keyword-list.is-matched li {
   border-color: var(--success);
   background: var(--success-soft);
-  color: var(--success);
+  color: var(--success-soft-foreground);
 }

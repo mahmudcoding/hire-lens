@@ -1,50 +1,114 @@
-:root {
-  --text: #1f2933;
-  --muted: #5f6b7a;
-  --bg: #f7f8fa;
-  --surface: #ffffff;
-  --border: #d9dee5;
-  --accent: #2563eb;
-  --accent-soft: #e8efff;
-  --on-accent: #ffffff;
-  --danger: #b42318;
-  --danger-soft: #fef3f2;
-  --success: #067647;
-  --success-soft: #ecfdf3;
-  --radius: 12px;
+@import 'tailwindcss';
+@import '@heroui/styles';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
 
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
-  line-height: 1.5;
-  color: var(--text);
-  background: var(--bg);
-  -webkit-font-smoothing: antialiased;
+/* Fonts: Geist for everything, Geist Mono for small uppercase labels. */
+@theme {
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'Cascadia Mono', Menlo, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #e6e9ee;
-    --muted: #a3acb9;
-    --bg: #111418;
-    --surface: #1a1e24;
-    --border: #2d333b;
-    --accent: #6ea8ff;
-    --accent-soft: #1b2a44;
-    --on-accent: #0b1220;
-    --danger: #ff8a80;
-    --danger-soft: #3a1d1b;
-    --success: #6ce9a6;
-    --success-soft: #133325;
+/*
+ * HireLens theme. The site is dark only (index.html sets class="dark"), so the
+ * palette is applied once on :root. These rules are unlayered, so they win over
+ * HeroUI's layered defaults regardless of order.
+ *
+ * Palette: navy #1B3046, blue #1082B7, mint #85D6C1, maroon #852E29.
+ */
+:root {
+  --navy: #1b3046;
+  --blue: #1082b7;
+  --mint: #85d6c1;
+  --maroon: #852e29;
+
+  /* Base */
+  --background: var(--navy);
+  --foreground: var(--snow);
+  --muted: color-mix(in oklab, var(--snow) 62%, var(--navy));
+
+  /* Surfaces step up from the page background. */
+  --surface: color-mix(in oklab, var(--navy) 92%, var(--snow));
+  --surface-secondary: color-mix(in oklab, var(--navy) 87%, var(--snow));
+  --surface-tertiary: color-mix(in oklab, var(--navy) 82%, var(--snow));
+  --overlay: var(--surface-secondary);
+  --default: color-mix(in oklab, var(--navy) 80%, var(--snow));
+  --default-foreground: var(--snow);
+
+  /* Form fields sit slightly below the page. */
+  --field-background: color-mix(in oklab, var(--navy) 90%, var(--black));
+  --field-border: color-mix(in oklab, var(--snow) 14%, var(--navy));
+
+  /* Semantic colors. White on blue is only 4.3:1, so keep button labels bold. */
+  --accent: var(--blue);
+  --accent-foreground: var(--snow);
+  --success: var(--mint);
+  --success-foreground: var(--navy);
+  --danger: var(--maroon);
+  --danger-foreground: var(--snow);
+
+  /* Text in a status color on the navy page. HeroUI's default mixes are too dark here. */
+  --accent-soft-foreground: color-mix(in oklab, var(--blue) 60%, var(--snow));
+  --success-soft-foreground: color-mix(in oklab, var(--mint) 85%, var(--snow));
+  --danger-soft-foreground: color-mix(in oklab, var(--maroon) 55%, var(--snow));
+
+  /* Lines and focus */
+  --border: color-mix(in oklab, var(--snow) 14%, var(--navy));
+  --separator: color-mix(in oklab, var(--snow) 10%, var(--navy));
+  --focus: var(--mint);
+  --link: var(--mint);
+
+  /* Rounder corners, closer to the pill buttons and soft cards of the reference. */
+  --radius: 0.75rem;
+
+  /* Names the existing component stylesheets still use. Remove once they move to Tailwind. */
+  --text: var(--foreground);
+  --bg: var(--background);
+  --on-accent: var(--accent-foreground);
+}
+
+@layer base {
+  body {
+    min-height: 100dvh;
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Tailwind's preflight strips heading weight and size; put the type scale back. */
+  h1,
+  h2,
+  h3 {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+
+  h1 {
+    font-size: 2rem;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+  }
+
+  h3 {
+    font-size: 1rem;
+  }
+
+  code,
+  pre {
+    font-family: var(--font-mono);
   }
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
+/* Small uppercase label in the reference design, e.g. "02 / 05" or "THE LOOP". */
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .app {
@@ -71,7 +135,7 @@ body {
 
 .message.is-success {
   background: var(--success-soft);
-  color: var(--success);
+  color: var(--success-soft-foreground);
 }
 
 .message.is-info {
@@ -81,5 +145,5 @@ body {
 
 .message.is-error {
   background: var(--danger-soft);
-  color: var(--danger);
+  color: var(--danger-soft-foreground);
 }
