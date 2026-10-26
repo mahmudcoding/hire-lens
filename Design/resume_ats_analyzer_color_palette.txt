@@ -1,0 +1,48 @@
+Resume ATS Analyzer — UI Color Palette
+======================================
+
+Primary Colors
+--------------
+Primary Blue:          #1677FF
+Primary Blue Hover:    #0F65D8
+Light Blue:            #EAF3FF
+Pale Blue Background:  #F5F9FF
+
+Neutrals
+--------
+White:                 #FFFFFF
+Page Background:       #F4F7FB
+Surface / Card:        #FFFFFF
+Border:                #DCE6F2
+Subtle Divider:        #E8EEF6
+Muted Background:      #F1F5FA
+
+Typography
+----------
+Primary Text / Navy:   #10264A
+Secondary Text:        #526887
+Muted Text:            #7B8DA8
+
+Status Colors
+-------------
+Success Green:         #159B68
+Success Light:         #E7F7F0
+Job Match Blue:        #1677FF
+Hiring Chance Purple:  #8B5CF6
+Warning Orange:        #F59E0B
+Warning Light:         #FFF5E5
+Error Red:             #E65353
+
+Suggested Usage
+---------------
+- Use Primary Blue for primary buttons, links, active navigation, and key UI accents.
+- Use Primary Text / Navy for headings and important labels.
+- Use Secondary Text for supporting copy and descriptions.
+- Use Page Background behind the main content; keep cards white.
+- Use Border for card outlines and input borders.
+- Use Success Green for positive ATS indicators.
+- Use Primary Blue for job-match visuals.
+- Use Hiring Chance Purple for hiring-estimate visuals.
+- Use Warning Orange for warnings and improvement indicators.
+- Maintain accessible text contrast, especially for small labels.
+- Hiring chance should be presented as an estimate, not a guaranteed outcome.
