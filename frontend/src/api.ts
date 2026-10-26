@@ -36,6 +36,23 @@ export type KeywordMatch = {
   explanation: string
 }
 
+export type SectionName = 'contact' | 'summary' | 'experience' | 'education' | 'skills'
+
+export type ResumeSection = {
+  name: SectionName
+  /** The heading as written in the resume, or null when the section had none. */
+  heading: string | null
+  text: string
+}
+
+export type ResumeSections = {
+  id: string
+  /** The sections found, in the order an ATS expects them. */
+  sections: ResumeSection[]
+  /** The sections not found, in the same order. */
+  missing: SectionName[]
+}
+
 export type HiringFactor = {
   code: string
   title: string
@@ -126,6 +143,15 @@ export function getAtsScore(id: string, signal?: AbortSignal): Promise<AtsScore>
   return requestJson(
     `/api/resumes/${encodeURIComponent(id)}/ats-score`,
     'Something went wrong while scoring your resume. Please try again.',
+    { signal },
+  )
+}
+
+/** Fetches which of the five sections an ATS looks for were found in an uploaded resume. */
+export function getResumeSections(id: string, signal?: AbortSignal): Promise<ResumeSections> {
+  return requestJson(
+    `/api/resumes/${encodeURIComponent(id)}/sections`,
+    'Something went wrong while looking for the sections of your resume. Please try again.',
     { signal },
   )
 }
