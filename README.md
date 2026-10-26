@@ -102,6 +102,8 @@ The results page shows the level and percentage, then the factors in two lists: 
 
 `POST /api/resumes/{id}/suggestions` with an optional `{"job_description": "..."}` lists what to fix, biggest first. Every suggestion is measured the same way: how many percentage points the hiring chance above would rise if that one thing, and nothing else, were fixed, so fixes as different as "add this keyword" and "remove this table" can be ranked against each other. A suggestion only appears when fixing it would actually help - nothing for a format problem that isn't there, a keyword already in the resume, a section already found, or achievements and skills already at full marks. Without a job description there are no keyword suggestions, since there is nothing to match against. The details are in `backend/app/suggestions.py`.
 
+The "Best options" panel calls `POST /api/resumes/{id}/suggestions` and shows what to fix, in the priority order the server already ranked them. Each entry shows what to change, why, and a badge with the estimated percentage points it would add to the hiring chance above. It works with or without a job description; without one there just aren't any keyword suggestions. It re-lists a moment after the job description is edited, same as the hiring chance. The component is `frontend/src/Suggestions.tsx`.
+
 ## Project structure
 
 ```

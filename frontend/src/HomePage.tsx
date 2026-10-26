@@ -7,6 +7,7 @@ import { JobDescription } from './JobDescription.tsx'
 import { KeywordMatch } from './KeywordMatch.tsx'
 import { ResumeUpload } from './ResumeUpload.tsx'
 import { Sections } from './Sections.tsx'
+import { Suggestions } from './Suggestions.tsx'
 
 type Props = {
   resume: UploadedResume | null
@@ -45,6 +46,11 @@ export function HomePage({
           />
           <HiringChance
             key={`chance-${resume.id}`}
+            resume={resume}
+            jobDescription={jobDescription}
+          />
+          <Suggestions
+            key={`suggestions-${resume.id}`}
             resume={resume}
             jobDescription={jobDescription}
           />
