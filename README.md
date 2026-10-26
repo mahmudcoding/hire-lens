@@ -86,7 +86,7 @@ The frontend is styled with [Tailwind CSS](https://tailwindcss.com/) v4 and [Her
 | Measurable achievements | 15% | experience lines with a number that isn't a date (full marks at 3) |
 | Skills | 10% | how many skills are listed in the skills section (full marks at 8) |
 
-The percentage is the weighted average of the factors. Without a job description the keyword match is left out and its weight is shared among the other four. The response lists every factor with its score, weight and an explanation. Only the text of the resume is used, never the candidate's name, photo, gender, age or nationality. The details are in `backend/app/hiring_chance.py`.
+The percentage is the weighted average of the factors. Without a job description the keyword match is left out and its weight is shared among the other four. The response lists every factor with its score, weight and an explanation. Only the text of the resume is used, never the candidate's name, photo, gender, age or nationality (NFR-04). `backend/tests/test_fair_scoring.py` proves this end to end: resumes that differ only by name and/or photo always come back with the exact same ATS score, keyword match and hiring chance. The details are in `backend/app/hiring_chance.py`.
 
 The results page shows the level and percentage, then the factors in two lists: the ones that scored 70 or more raised the chance, the rest lowered it. Each factor shows its score, its weight and the explanation. It estimates again a moment after the job description is edited. A note under the result says it is an estimate, not a guarantee.
 
