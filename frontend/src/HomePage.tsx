@@ -1,5 +1,6 @@
 import type { UploadedResume } from './api.ts'
 import { AtsScore } from './AtsScore.tsx'
+import { ConsentNotice } from './ConsentNotice.tsx'
 import { ExtractedText } from './ExtractedText.tsx'
 import { HiringChance } from './HiringChance.tsx'
 import { JobDescription } from './JobDescription.tsx'
@@ -12,6 +13,9 @@ type Props = {
   onResumeChange: (resume: UploadedResume | null) => void
   jobDescription: string
   onJobDescriptionChange: (value: string) => void
+  /** Whether the candidate has ticked the privacy notice's consent checkbox (DP-30). */
+  consentGiven: boolean
+  onConsentChange: (checked: boolean) => void
 }
 
 export function HomePage({
@@ -19,6 +23,8 @@ export function HomePage({
   onResumeChange,
   jobDescription,
   onJobDescriptionChange,
+  consentGiven,
+  onConsentChange,
 }: Props) {
   return (
     <>
@@ -27,7 +33,8 @@ export function HomePage({
         <p>HireLens reads it the way an Applicant Tracking System would.</p>
       </header>
       <JobDescription value={jobDescription} onChange={onJobDescriptionChange} />
-      <ResumeUpload onResumeChange={onResumeChange} />
+      <ConsentNotice checked={consentGiven} onChange={onConsentChange} />
+      <ResumeUpload consentGiven={consentGiven} onResumeChange={onResumeChange} />
       {resume && (
         <>
           <AtsScore key={`score-${resume.id}`} resume={resume} />

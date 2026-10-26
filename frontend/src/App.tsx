@@ -10,6 +10,7 @@ function App() {
   // Kept here rather than in HomePage so the results survive a visit to another page.
   const [resume, setResume] = useState<UploadedResume | null>(null)
   const [jobDescription, setJobDescription] = useState('')
+  const [consentGiven, setConsentGiven] = useState(false)
 
   return (
     <>
@@ -24,6 +25,8 @@ function App() {
                 onResumeChange={setResume}
                 jobDescription={jobDescription}
                 onJobDescriptionChange={setJobDescription}
+                consentGiven={consentGiven}
+                onConsentChange={setConsentGiven}
               />
             }
           />

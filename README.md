@@ -45,6 +45,12 @@ To check which sections (contact, summary, experience, education, skills) HireLe
 uv run python -m scripts.check_sections /path/to/test-resumes
 ```
 
+## Consent and privacy
+
+Before uploading a resume, a candidate has to read the privacy notice and tick its consent checkbox (NFR-03); the upload controls stay disabled, and a dropped file is rejected with a message, until they do. The notice explains that a resume is stored only to generate the results, kept for up to 24 hours and then deleted automatically, and never shared with anyone else. The component is `frontend/src/ConsentNotice.tsx`.
+
+The notice's wording describes only what HireLens actually does; it has not yet been reviewed against Uzbekistan's personal data law (tracked on DP-30), so treat the current text as a draft, not final compliance copy.
+
 ## How the ATS score works
 
 `GET /api/resumes/{id}/ats-score` gives a score from 0 to 100. Every resume starts at 100 and loses a fixed number of points for each format problem found (tables, columns, images, missing headings and so on). The response lists what each problem cost and explains how to fix it. The weights and the reasons for them are in `backend/app/ats_score.py`.
