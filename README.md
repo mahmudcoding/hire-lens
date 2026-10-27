@@ -41,6 +41,8 @@ To check how many resumes in a folder HireLens can read (DP-18 asks for at least
 uv run python -m scripts.check_extraction ../test-resumes
 ```
 
+On the checked-in set it reads 19 of 20 (95%). The one it can't read is `bad_09_scanned_no_text.pdf`, which has no text layer on purpose and gets the "scanned image" error. A backend test fails if this drops below the target.
+
 To check which sections (contact, summary, experience, education, skills) HireLens finds in the same set (DP-20), run:
 
 ```bash
