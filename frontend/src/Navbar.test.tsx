@@ -18,9 +18,10 @@ describe('Navbar', () => {
 
     expect(within(nav).getByRole('link', { name: 'HireLens.' })).toHaveAttribute('href', '/')
     expect(within(nav).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/')
+    expect(within(nav).getByRole('link', { name: 'Check' })).toHaveAttribute('href', '/check')
     expect(within(nav).getByRole('link', { name: 'History' })).toHaveAttribute('href', '/history')
     expect(within(nav).getByRole('link', { name: 'Profile' })).toHaveAttribute('href', '/profile')
-    expect(within(nav).getByRole('link', { name: 'Check my resume' })).toHaveAttribute('href', '/')
+    expect(within(nav).getByRole('link', { name: 'Check my resume' })).toHaveAttribute('href', '/check')
   })
 
   it('marks only the current page', () => {
@@ -31,10 +32,11 @@ describe('Navbar', () => {
     expect(screen.getByRole('link', { name: 'Profile' })).not.toHaveAttribute('aria-current')
   })
 
-  it('marks Home on the main page only', () => {
+  it('marks Home on the landing page only', () => {
     renderAt('/')
 
     expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Check' })).not.toHaveAttribute('aria-current')
     expect(screen.getByRole('link', { name: 'History' })).not.toHaveAttribute('aria-current')
   })
 })
