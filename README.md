@@ -106,6 +106,10 @@ The results page shows the level and percentage, then the factors in two lists: 
 
 The "Best options" panel calls `POST /api/resumes/{id}/suggestions` and shows what to fix, in the priority order the server already ranked them. Each entry shows what to change, why, and a badge with the estimated percentage points it would add to the hiring chance above. It works with or without a job description; without one there just aren't any keyword suggestions. It re-lists a moment after the job description is edited, same as the hiring chance. The component is `frontend/src/Suggestions.tsx`.
 
+## The PDF report
+
+`POST /api/resumes/{id}/report` with an optional `{"job_description": "..."}` returns the whole analysis as a PDF to download (FR-09): the ATS score and its problems, the keyword match with the missing keywords (only when a job description is given), the hiring chance with the factors that raised and lowered it, and the fixes, biggest gain first. Every number has the same explanation as the results page (NFR-04). The report is built in memory for each request and never stored, and is sent with `Cache-Control: no-store`, so it can't outlive the resume (NFR-02). It takes well under the 10-second budget and stays far below 2 MB. Suggested roles and bullet rewrites will be added once those features exist. The details are in `backend/app/report.py`.
+
 ## Encryption and HTTPS (NFR-01)
 
 Resumes are encrypted at rest: `backend/app/storage.py` encrypts every file with [Fernet](https://cryptography.io/en/latest/fernet/) before it touches disk, and only ever decrypts into memory, never back to another file. The key comes from `HIRELENS_ENCRYPTION_KEY`; without it, a random key is generated for that process only, so a restart makes resumes saved before it unreadable (safe, since they're deleted automatically within 24 hours anyway - DP-29 - but set a real key before deploying). See `.env.example`.

@@ -1,6 +1,7 @@
+from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, Field
 
 from app.ats_score import MAX_SCORE, calculate_ats_score
@@ -10,6 +11,7 @@ from app.file_types import UnsupportedFileType, detect_file_type
 from app.format_checks import check_format
 from app.hiring_chance import calculate_hiring_chance
 from app.keywords import explain_match, match_keywords
+from app.report import analyze, render_report
 from app.sections import detect_sections
 from app.storage import ResumeNotFound, ResumeStorage, ResumeUnreadable, StoredResume, get_storage
 from app.suggestions import generate_suggestions
@@ -299,6 +301,37 @@ def get_resume_suggestions(
             )
             for suggestion in suggestions
         ],
+    )
+
+
+@router.post(
+    "/{resume_id}/report",
+    response_class=Response,
+    responses={200: {"content": {"application/pdf": {}}, "description": "The PDF report."}},
+)
+def download_report(
+    resume_id: str,
+    body: OptionalJobDescriptionIn,
+    storage: Annotated[ResumeStorage, Depends(get_storage)],
+) -> Response:
+    """Return the whole analysis of a resume as a PDF report to download.
+
+    The job description is optional, as for the hiring chance. The report is
+    made in memory for this request and never stored, so it can't outlive
+    the resume (NFR-02).
+    """
+    stored, data, text = _read_resume(resume_id, storage)
+    analysis = analyze(data, stored.file_type, text, body.job_description)
+    pdf = render_report(analysis, datetime.now(UTC))
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="hirelens-report.pdf"',
+            # The report holds resume details, so browsers and proxies
+            # shouldn't keep a copy of it either.
+            "Cache-Control": "no-store",
+        },
     )
 
 
