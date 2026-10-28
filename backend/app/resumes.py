@@ -9,7 +9,7 @@ from app.extraction import UnreadableResume, extract_text
 from app.file_types import UnsupportedFileType, detect_file_type
 from app.format_checks import check_format
 from app.hiring_chance import calculate_hiring_chance
-from app.keywords import match_keywords
+from app.keywords import explain_match, match_keywords
 from app.sections import detect_sections
 from app.storage import ResumeNotFound, ResumeStorage, ResumeUnreadable, StoredResume, get_storage
 from app.suggestions import generate_suggestions
@@ -223,20 +223,12 @@ def match_resume_keywords(
         )
     stored, _data, text = _read_resume(resume_id, storage)
     result = match_keywords(text, body.job_description)
-    total = len(result.matched) + len(result.missing)
-    if total:
-        explanation = (
-            f"{len(result.matched)} of the {total} keywords in the job description "
-            f"were found in your resume."
-        )
-    else:
-        explanation = "We couldn't find any skills or terms in the job description to match."
     return ResumeKeywordMatch(
         id=stored.id,
         percentage=result.percentage,
         matched=result.matched,
         missing=result.missing,
-        explanation=explanation,
+        explanation=explain_match(result),
     )
 
 
