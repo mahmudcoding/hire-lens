@@ -111,6 +111,17 @@ class KeywordMatch:
     missing: list[str]
 
 
+def explain_match(match: KeywordMatch) -> str:
+    """Say in one sentence how the match percentage was worked out (NFR-04)."""
+    total = len(match.matched) + len(match.missing)
+    if total:
+        return (
+            f"{len(match.matched)} of the {total} keywords in the job description "
+            f"were found in your resume."
+        )
+    return "We couldn't find any skills or terms in the job description to match."
+
+
 def extract_keywords(job_description: str) -> list[str]:
     """Return the job description's keywords, most important first."""
     return [text for text, _ in _keywords(job_description)]

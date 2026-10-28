@@ -1,4 +1,4 @@
-from app.keywords import MAX_KEYWORDS, extract_keywords, match_keywords
+from app.keywords import MAX_KEYWORDS, KeywordMatch, explain_match, extract_keywords, match_keywords
 
 JOB = (
     "We are looking for a Data Analyst to join our team. "
@@ -98,3 +98,15 @@ def test_a_multi_word_term_matches_when_written_as_one_word():
 
 def test_part_of_a_longer_word_does_not_count():
     assert match_keywords("JavaScript", "Java").missing == ["Java"]
+
+
+def test_the_explanation_counts_the_keywords_found():
+    match = KeywordMatch(percentage=67, matched=["SQL", "Python"], missing=["Tableau"])
+
+    assert explain_match(match) == "2 of the 3 keywords in the job description were found in your resume."
+
+
+def test_the_explanation_says_when_there_was_nothing_to_match():
+    match = KeywordMatch(percentage=0, matched=[], missing=[])
+
+    assert "couldn't find any skills or terms" in explain_match(match)
