@@ -5,6 +5,7 @@ import { ExtractedText } from './ExtractedText.tsx'
 import { HiringChance } from './HiringChance.tsx'
 import { JobDescription } from './JobDescription.tsx'
 import { KeywordMatch } from './KeywordMatch.tsx'
+import { PreviousResults } from './PreviousResults.tsx'
 import { ResumeUpload } from './ResumeUpload.tsx'
 import { Sections } from './Sections.tsx'
 import { Suggestions } from './Suggestions.tsx'
@@ -51,6 +52,11 @@ export function HomePage({
           />
           <Suggestions
             key={`suggestions-${resume.id}`}
+            resume={resume}
+            jobDescription={jobDescription}
+          />
+          <PreviousResults
+            key={`previous-${resume.id}`}
             resume={resume}
             jobDescription={jobDescription}
           />

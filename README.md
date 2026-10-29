@@ -76,7 +76,7 @@ The results page shows the five sections as chips, found ones in mint and missin
 The bar at the top of every page links to three pages:
 
 - **Home** (`/`): paste a job description, upload a resume and read the results.
-- **History** (`/history`): will list the resumes a candidate has uploaded and checked.
+- **History** (`/history`): lists the results of every resume checked in this browser, newest first, compares the latest with the one before, and has a button to clear them all.
 - **Profile** (`/profile`): will show the candidate's details.
 
 History and Profile are placeholders until the backend stores resumes per candidate.
@@ -113,6 +113,8 @@ The "Best options" panel calls `POST /api/resumes/{id}/suggestions` and shows wh
 ## Previous results
 
 HireLens keeps a candidate's earlier results so they can compare after improving their resume (FR-10), with no account. `POST /api/resumes/{id}/history` with `{"job_description": "...", "history_id": "..."}` (both optional) records the resume's results under an anonymous history ID and returns that ID, every result kept so far (newest first, at most 10), and how the newest one changed from the one before: the ATS score, keyword match and hiring chance differences, and which format problems were fixed or are new. Recording the same resume again replaces its earlier results. `GET /api/history/{history_id}` reads a history back and `DELETE /api/history/{history_id}` clears it.
+
+The home page saves each resume's results as soon as it is analyzed (again a moment after the job description is edited) and shows how they compare with the resume checked before it. The browser keeps only the history ID, in `localStorage`. The components are `frontend/src/PreviousResults.tsx` and `frontend/src/HistoryPage.tsx`.
 
 Only the results are kept: scores, problems, keywords and the hiring chance, never the resume's file, text or file name, so the resume itself is still deleted after 24 hours (NFR-02). Each history is one file in `HIRELENS_HISTORY_DIR` (default `backend/storage/history`), encrypted with the same key as the resumes (NFR-01). The details are in `backend/app/history.py`.
 
