@@ -1,5 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getAtsScore, getHiringChance, getResumeText, matchKeywords, uploadResume } from './api.ts'
+import {
+  clearHistory,
+  getAtsScore,
+  getHiringChance,
+  getHistory,
+  getResumeText,
+  matchKeywords,
+  recordResults,
+  uploadResume,
+} from './api.ts'
 
 class FakeXhr {
   static last: FakeXhr
@@ -272,5 +281,91 @@ describe('getHiringChance', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
 
     await expect(getHiringChance('abc', '')).rejects.toThrow("Couldn't reach the server.")
+  })
+})
+
+const history = { history_id: 'h1', entries: [], comparison: null }
+
+describe('recordResults', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('posts the job description and history ID and returns the history', async () => {
+    const fetchMock = stubFetch(200, history)
+    const controller = new AbortController()
+
+    await expect(recordResults('abc', 'Python', 'h1', controller.signal)).resolves.toEqual(history)
+    expect(fetchMock).toHaveBeenCalledWith('/api/resumes/abc/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_description: 'Python', history_id: 'h1' }),
+      signal: controller.signal,
+    })
+  })
+
+  it('sends no history ID to start a new history', async () => {
+    const fetchMock = stubFetch(200, history)
+
+    await recordResults('abc', '', null)
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/resumes/abc/history',
+      expect.objectContaining({ body: JSON.stringify({ job_description: '', history_id: null }) }),
+    )
+  })
+
+  it('rejects with a general message when the server gives no explanation', async () => {
+    stubFetch(500, null)
+
+    await expect(recordResults('abc', '', null)).rejects.toThrow(
+      'Something went wrong while saving your results. Please try again.',
+    )
+  })
+})
+
+describe('getHistory', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('fetches the history', async () => {
+    const fetchMock = stubFetch(200, history)
+
+    await expect(getHistory('h1')).resolves.toEqual(history)
+    expect(fetchMock).toHaveBeenCalledWith('/api/history/h1', { signal: undefined })
+  })
+
+  it("rejects with the server's explanation", async () => {
+    stubFetch(404, { detail: 'There are no previous results to show.' })
+
+    await expect(getHistory('h1')).rejects.toThrow('There are no previous results to show.')
+  })
+})
+
+describe('clearHistory', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('deletes the history', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(clearHistory('h1')).resolves.toBeUndefined()
+    expect(fetchMock).toHaveBeenCalledWith('/api/history/h1', { method: 'DELETE' })
+  })
+
+  it('rejects with a general message when clearing fails', async () => {
+    stubFetch(500, null)
+
+    await expect(clearHistory('h1')).rejects.toThrow(
+      'Something went wrong while clearing your history. Please try again.',
+    )
+  })
+
+  it('rejects with a connection message when the request fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+
+    await expect(clearHistory('h1')).rejects.toThrow("Couldn't reach the server.")
   })
 })

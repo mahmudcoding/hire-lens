@@ -86,6 +86,53 @@ export type Suggestions = {
   suggestions: Suggestion[]
 }
 
+export type HistoryProblem = {
+  code: string
+  title: string
+  points: number
+}
+
+export type HistoryFactor = {
+  code: string
+  title: string
+  score: number
+  weight: number
+}
+
+/** The results kept for one resume, never the resume itself. */
+export type HistoryEntry = {
+  resume_id: string
+  /** When the resume was analyzed, ISO 8601 in UTC. */
+  analyzed_at: string
+  ats_score: number
+  problems: HistoryProblem[]
+  /** Null when no job description was given. */
+  keyword_percentage: number | null
+  matched_keywords: string[]
+  missing_keywords: string[]
+  hiring_percentage: number
+  hiring_level: 'Low' | 'Medium' | 'High'
+  factors: HistoryFactor[]
+}
+
+/** How the newest entry differs from the one before it. */
+export type HistoryComparison = {
+  ats_score_change: number
+  /** Null unless both entries had a job description to match. */
+  keyword_percentage_change: number | null
+  hiring_percentage_change: number
+  fixed_problems: string[]
+  new_problems: string[]
+}
+
+export type AnalysisHistory = {
+  history_id: string
+  /** Newest first. */
+  entries: HistoryEntry[]
+  /** Null with fewer than two entries. */
+  comparison: HistoryComparison | null
+}
+
 export class ApiError extends Error {}
 
 const CONNECTION_PROBLEM = "Couldn't reach the server. Check your connection and try again."
@@ -215,6 +262,54 @@ export function getSuggestions(
       signal,
     },
   )
+}
+
+/**
+ * Keeps an uploaded resume's results in the candidate's anonymous history,
+ * so a later resume can be compared with them. Without a history ID a new
+ * history is started; the response has its ID.
+ */
+export function recordResults(
+  id: string,
+  jobDescription: string,
+  historyId: string | null,
+  signal?: AbortSignal,
+): Promise<AnalysisHistory> {
+  return requestJson(
+    `/api/resumes/${encodeURIComponent(id)}/history`,
+    'Something went wrong while saving your results. Please try again.',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_description: jobDescription, history_id: historyId }),
+      signal,
+    },
+  )
+}
+
+/** Fetches the results kept in a history, newest first. */
+export function getHistory(historyId: string, signal?: AbortSignal): Promise<AnalysisHistory> {
+  return requestJson(
+    `/api/history/${encodeURIComponent(historyId)}`,
+    'Something went wrong while loading your previous results. Please try again.',
+    { signal },
+  )
+}
+
+/** Deletes every result kept in a history. */
+export async function clearHistory(historyId: string): Promise<void> {
+  let response: Response
+  try {
+    response = await fetch(`/api/history/${encodeURIComponent(historyId)}`, { method: 'DELETE' })
+  } catch {
+    throw new ApiError(CONNECTION_PROBLEM)
+  }
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => null)
+    throw new ApiError(
+      errorMessage(body, 'Something went wrong while clearing your history. Please try again.'),
+    )
+  }
 }
 
 async function requestJson<T>(url: string, fallback: string, init: RequestInit): Promise<T> {

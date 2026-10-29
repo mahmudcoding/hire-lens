@@ -6,9 +6,11 @@ import {
   getAtsScore,
   getResumeSections,
   getHiringChance,
+  getHistory,
   getResumeText,
   getSuggestions,
   matchKeywords,
+  recordResults,
   uploadResume,
   type UploadedResume,
 } from './api.ts'
@@ -22,6 +24,9 @@ vi.mock('./api.ts', () => ({
   getHiringChance: vi.fn(),
   matchKeywords: vi.fn(),
   getSuggestions: vi.fn(),
+  recordResults: vi.fn(),
+  getHistory: vi.fn(),
+  clearHistory: vi.fn(),
 }))
 
 const stored: UploadedResume = {
@@ -71,6 +76,9 @@ describe('App', () => {
       explanation: '0 of the 1 keywords in the job description were found in your resume.',
     })
     vi.mocked(getSuggestions).mockResolvedValue({ id: 'abc', suggestions: [] })
+    vi.mocked(recordResults).mockResolvedValue({ history_id: 'h1', entries: [], comparison: null })
+    vi.mocked(getHistory).mockResolvedValue({ history_id: 'h1', entries: [], comparison: null })
+    localStorage.clear()
   })
 
   it('shows the product name and opens on the main page', () => {
@@ -85,7 +93,7 @@ describe('App', () => {
     renderApp()
 
     await user.click(screen.getByRole('link', { name: 'History' }))
-    expect(screen.getByRole('heading', { name: 'History' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Previous results' })).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'Job description' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('link', { name: 'Profile' }))
