@@ -133,7 +133,43 @@ export type AnalysisHistory = {
   comparison: HistoryComparison | null
 }
 
-export class ApiError extends Error {}
+/** A candidate's account and profile (FR-11). */
+export type Account = {
+  id: string
+  email: string
+  name: string
+  /** The role the candidate is after, or an empty string. */
+  target_role: string
+  /** Where the candidate is based, or an empty string. */
+  location: string
+  /** The candidate's results history (FR-10), or null until a resume is checked. */
+  history_id: string | null
+  created_at: string
+}
+
+export type Session = {
+  /** Sent as `Authorization: Bearer` on later requests. */
+  token: string
+  account: Account
+}
+
+/** The profile fields a candidate can change; leave one out to keep it. */
+export type ProfileChanges = {
+  name?: string
+  target_role?: string
+  location?: string
+  history_id?: string | null
+}
+
+export class ApiError extends Error {
+  /** The HTTP status of the response, when there was one. */
+  status?: number
+
+  constructor(message: string, status?: number) {
+    super(message)
+    this.status = status
+  }
+}
 
 const CONNECTION_PROBLEM = "Couldn't reach the server. Check your connection and try again."
 
@@ -296,6 +332,41 @@ export function getHistory(historyId: string, signal?: AbortSignal): Promise<Ana
   )
 }
 
+/** Creates an account and logs it in (FR-11). */
+export function register(email: string, password: string, name: string): Promise<Session> {
+  return requestJson('/api/auth/register', "We couldn't create your account. Please try again.", {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, name }),
+  })
+}
+
+/** Logs in to an existing account. */
+export function login(email: string, password: string): Promise<Session> {
+  return requestJson('/api/auth/login', "We couldn't log you in. Please try again.", {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+}
+
+/** Fetches the account behind a session token. Fails with status 401 once it has expired. */
+export function getAccount(token: string, signal?: AbortSignal): Promise<Account> {
+  return requestJson('/api/auth/me', "We couldn't check your session. Please try again.", {
+    headers: { Authorization: `Bearer ${token}` },
+    signal,
+  })
+}
+
+/** Changes the logged-in candidate's profile and returns the whole account. */
+export function updateProfile(token: string, changes: ProfileChanges): Promise<Account> {
+  return requestJson('/api/auth/me', "We couldn't save your profile. Please try again.", {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(changes),
+  })
+}
+
 /** Deletes every result kept in a history. */
 export async function clearHistory(historyId: string): Promise<void> {
   let response: Response
@@ -323,7 +394,7 @@ async function requestJson<T>(url: string, fallback: string, init: RequestInit):
 
   const body: unknown = await response.json().catch(() => null)
   if (!response.ok) {
-    throw new ApiError(errorMessage(body, fallback))
+    throw new ApiError(errorMessage(body, fallback), response.status)
   }
   return body as T
 }
