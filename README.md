@@ -110,6 +110,12 @@ The "Best options" panel calls `POST /api/resumes/{id}/suggestions` and shows wh
 
 `POST /api/resumes/{id}/report` with an optional `{"job_description": "..."}` returns the whole analysis as a PDF to download (FR-09): the ATS score and its problems, the keyword match with the missing keywords (only when a job description is given), the hiring chance with the factors that raised and lowered it, and the fixes, biggest gain first. Every number has the same explanation as the results page (NFR-04). The report is built in memory for each request and never stored, and is sent with `Cache-Control: no-store`, so it can't outlive the resume (NFR-02). It takes well under the 10-second budget and stays far below 2 MB. Suggested roles and bullet rewrites will be added once those features exist. The details are in `backend/app/report.py`.
 
+## Previous results
+
+HireLens keeps a candidate's earlier results so they can compare after improving their resume (FR-10), with no account. `POST /api/resumes/{id}/history` with `{"job_description": "...", "history_id": "..."}` (both optional) records the resume's results under an anonymous history ID and returns that ID, every result kept so far (newest first, at most 10), and how the newest one changed from the one before: the ATS score, keyword match and hiring chance differences, and which format problems were fixed or are new. Recording the same resume again replaces its earlier results. `GET /api/history/{history_id}` reads a history back and `DELETE /api/history/{history_id}` clears it.
+
+Only the results are kept: scores, problems, keywords and the hiring chance, never the resume's file, text or file name, so the resume itself is still deleted after 24 hours (NFR-02). Each history is one file in `HIRELENS_HISTORY_DIR` (default `backend/storage/history`), encrypted with the same key as the resumes (NFR-01). The details are in `backend/app/history.py`.
+
 ## Encryption and HTTPS (NFR-01)
 
 Resumes are encrypted at rest: `backend/app/storage.py` encrypts every file with [Fernet](https://cryptography.io/en/latest/fernet/) before it touches disk, and only ever decrypts into memory, never back to another file. The key comes from `HIRELENS_ENCRYPTION_KEY`; without it, a random key is generated for that process only, so a restart makes resumes saved before it unreadable (safe, since they're deleted automatically within 24 hours anyway - DP-29 - but set a real key before deploying). See `.env.example`.
