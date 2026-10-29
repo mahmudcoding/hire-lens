@@ -18,6 +18,10 @@ MAX_JOB_DESCRIPTION_LENGTH = 10_000
 # Where uploaded resumes are kept until they are analyzed.
 STORAGE_DIR = Path(os.environ.get("HIRELENS_STORAGE_DIR", BACKEND_DIR / "storage"))
 
+# Where candidates' previous analysis results are kept (FR-10). Only results,
+# never the resumes themselves, so it is kept apart from them.
+HISTORY_DIR = Path(os.environ.get("HIRELENS_HISTORY_DIR", STORAGE_DIR / "history"))
+
 # Redirect HTTP to HTTPS and send Strict-Transport-Security (NFR-01 / DP-19).
 # Off by default so local dev (plain http://localhost:8000) keeps working;
 # a real deployment should set this once it has TLS termination in front of
