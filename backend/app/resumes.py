@@ -9,6 +9,8 @@ from app.config import MAX_JOB_DESCRIPTION_LENGTH, MAX_UPLOAD_BYTES
 from app.extraction import UnreadableResume, extract_text
 from app.file_types import UnsupportedFileType, detect_file_type
 from app.format_checks import check_format
+from app.histories import HistoryOut, history_out
+from app.history import AnalysisHistory, entry_from_analysis, get_history
 from app.hiring_chance import calculate_hiring_chance
 from app.keywords import explain_match, match_keywords
 from app.report import analyze, render_report
@@ -97,6 +99,12 @@ class ResumeHiringChance(BaseModel):
     percentage: int
     level: str
     factors: list[FactorOut]
+
+
+class RecordHistoryIn(BaseModel):
+    job_description: str = Field(default="", max_length=MAX_JOB_DESCRIPTION_LENGTH)
+    # The history to add to, as returned by an earlier call; None starts a new one.
+    history_id: str | None = Field(default=None, max_length=64)
 
 
 class SuggestionOut(BaseModel):
@@ -333,6 +341,27 @@ def download_report(
             "Cache-Control": "no-store",
         },
     )
+
+
+@router.post("/{resume_id}/history")
+def record_results(
+    resume_id: str,
+    body: RecordHistoryIn,
+    storage: Annotated[ResumeStorage, Depends(get_storage)],
+    history: Annotated[AnalysisHistory, Depends(get_history)],
+) -> HistoryOut:
+    """Keep this resume's results so a later resume can be compared with them.
+
+    Only the results are kept (scores, problems, keywords and the hiring
+    chance), never the resume itself, which is still deleted after 24 hours.
+    Recording the same resume again replaces its earlier results. The response
+    has the history's ID, to send with the next call, and every result in it.
+    """
+    stored, data, text = _read_resume(resume_id, storage)
+    analysis = analyze(data, stored.file_type, text, body.job_description)
+    entry = entry_from_analysis(stored.id, analysis, datetime.now(UTC))
+    history_id, entries = history.record(body.history_id, entry)
+    return history_out(history_id, entries)
 
 
 def _read_resume(resume_id: str, storage: ResumeStorage) -> tuple[StoredResume, bytes, str]:

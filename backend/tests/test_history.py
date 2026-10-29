@@ -35,11 +35,6 @@ JOB = "Data analyst with SQL, Python and Tableau. SQL is a must."
 NOW = datetime(2026, 10, 29, 9, 30, tzinfo=UTC)
 
 
-@pytest.fixture
-def history(tmp_path) -> AnalysisHistory:
-    return AnalysisHistory(tmp_path / "history", Fernet(Fernet.generate_key()))
-
-
 def analysis_of(lines, job=JOB):
     document = Document()
     for line in lines:
