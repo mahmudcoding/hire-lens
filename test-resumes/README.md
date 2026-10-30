@@ -40,3 +40,18 @@ and `format-checks` endpoints - should catch:
 to exercise the "scanned image" failure path, not the format checks. The other 19 are all
 readable (95%, clearing DP-18's 90% target), and `check_sections.py`/`check_format` together
 flag every `bad_*` file above with at least one real problem.
+
+## Large resumes (`large/`, DP-51)
+
+6 resumes of about 1, 3 and 5 MB, each as a PDF and a DOCX, for measuring how long the
+analysis takes on files up to the 5 MB upload limit (NFR-05). Each is a complete resume
+(all five sections) with a few pages of projects, followed by pictures that bring it up to
+size, the way real resumes that big usually carry screenshots or a photo. The pictures are
+random noise, so the size is easy to control, and a fixed seed makes every regeneration
+the same. They sit in their own folder so the counts above stay about the 20 resumes.
+
+| File | Size |
+| --- | --- |
+| `large_1mb_data_analyst.pdf` / `.docx` | about 1 MB |
+| `large_3mb_software_engineer.pdf` / `.docx` | about 3 MB |
+| `large_5mb_registered_nurse.pdf` / `.docx` | about 5 MB, just under the limit |

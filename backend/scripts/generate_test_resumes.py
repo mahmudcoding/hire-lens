@@ -10,10 +10,15 @@ Run it from the backend folder:
 With no argument it writes into ../test-resumes (the repo root's
 test-resumes/ folder), matching the path the README's check_extraction and
 check_sections examples use.
+
+It also writes the large resumes DP-51 benchmarks with into a large/
+subfolder: about 1, 3 and 5 MB, each as a PDF and a DOCX.
 """
 
 from __future__ import annotations
 
+import io
+import random
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -384,6 +389,108 @@ def build_scanned_pdf(path: Path, person: Person, folder: Path) -> None:
     pdf.output(str(path))
 
 
+# DP-51: resumes of about 1, 3 and 5 MB, to measure how long the analysis
+# takes on files near the 5 MB upload limit. Real resumes that big are long
+# and carry pictures (portfolio screenshots, logos, a photo), so these have
+# a few pages of text plus pictures that bring them up to size. The pictures
+# are random noise, which can't be compressed, so the file size is easy to
+# control; a fixed seed keeps every regeneration the same.
+MEGABYTE = 1_000_000
+LARGE_SIZES_MB = (1, 3, 5)
+# How close to the target size a large resume has to be.
+LARGE_SIZE_TOLERANCE = 0.03
+_PICTURE_WIDTH = 1200
+
+_PROJECT_TEMPLATE = (
+    "Project {number}: led a team of {team} to deliver a {kind} for a regional client, "
+    "finishing {weeks} weeks ahead of schedule and cutting running costs by {saving}%."
+)
+_PROJECT_KINDS = ["reporting dashboard", "data pipeline", "customer portal", "forecasting model"]
+
+
+def _long_lines(person: Person, projects: int) -> list[str]:
+    """A long version of the resume: the usual sections plus many projects."""
+    lines = _lines(person)
+    experience_end = lines.index(person.headings["experience"]) + 1 + len(person.experience)
+    extra = [
+        _PROJECT_TEMPLATE.format(
+            number=number,
+            team=3 + number % 5,
+            kind=_PROJECT_KINDS[number % len(_PROJECT_KINDS)],
+            weeks=1 + number % 4,
+            saving=5 + number % 20,
+        )
+        for number in range(1, projects + 1)
+    ]
+    return lines[:experience_end] + extra + lines[experience_end:]
+
+
+def _noise_jpeg(size_bytes: int, seed: int) -> bytes:
+    """A JPEG of random noise as close to size_bytes as a whole number of rows allows."""
+    rng = random.Random(seed)
+    noise = rng.randbytes(_PICTURE_WIDTH * 4000 * 3)
+
+    def encode(height: int) -> bytes:
+        image = Image.frombytes("RGB", (_PICTURE_WIDTH, height), noise[: _PICTURE_WIDTH * height * 3])
+        buffer = io.BytesIO()
+        image.save(buffer, "JPEG", quality=90)
+        return buffer.getvalue()
+
+    low, high = 1, 4000
+    while low < high:
+        middle = (low + high + 1) // 2
+        if len(encode(middle)) <= size_bytes:
+            low = middle
+        else:
+            high = middle - 1
+    return encode(low)
+
+
+def _pictures(total_bytes: int, count: int, seed: int) -> list[bytes]:
+    return [_noise_jpeg(total_bytes // count, seed + index) for index in range(count)]
+
+
+def _large_pdf(person: Person, pictures: list[bytes], projects: int) -> bytes:
+    pdf = _new_pdf()
+    pdf.set_auto_page_break(True, margin=15)
+    pdf.set_x(12)
+    for line in _long_lines(person, projects):
+        pdf.multi_cell(186, 7, line, new_x="LMARGIN", new_y="NEXT")
+    for picture in pictures:
+        pdf.add_page()
+        pdf.image(io.BytesIO(picture), x=12, y=15, w=186)
+    return bytes(pdf.output())
+
+
+def _large_docx(person: Person, pictures: list[bytes], projects: int) -> bytes:
+    document = Document()
+    for line in _long_lines(person, projects):
+        document.add_paragraph(line)
+    for picture in pictures:
+        document.add_picture(io.BytesIO(picture))
+    buffer = io.BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
+
+
+def build_large(path: Path, person: Person, size_bytes: int, seed: int = 51) -> None:
+    """A long resume with pictures, about size_bytes in total."""
+    build = _large_pdf if path.suffix == ".pdf" else _large_docx
+    # Two pages of projects per MB, and one picture per MB.
+    megabytes = max(1, round(size_bytes / MEGABYTE))
+    projects = 40 * megabytes
+    text_only = len(build(person, [], projects))
+    pictures = _pictures(size_bytes - text_only, megabytes, seed)
+    path.write_bytes(build(person, pictures, projects))
+
+
+LARGE: list[tuple[str, Person, int]] = [
+    (f"large_{size}mb_{person.role.lower().replace(' ', '_')}.{suffix}", person, size)
+    for size, person in zip(LARGE_SIZES_MB, (PEOPLE[0], PEOPLE[1], PEOPLE[3]))
+    for suffix in ("pdf", "docx")
+]
+
+
 GOOD: list[tuple[str, Callable[[Path, Path], None]]] = [
     ("good_01_data_analyst.pdf", lambda p, f: build_good_pdf(p, PEOPLE[0])),
     ("good_02_software_engineer.docx", lambda p, f: build_good_docx(p, PEOPLE[1])),
@@ -421,6 +528,13 @@ def generate(folder: Path) -> list[Path]:
     placeholder = folder / "_placeholder_photo.png"
     if placeholder.exists():
         placeholder.unlink()
+
+    large_folder = folder / "large"
+    large_folder.mkdir(exist_ok=True)
+    for filename, person, size in LARGE:
+        path = large_folder / filename
+        build_large(path, person, size * MEGABYTE)
+        written.append(path)
     return written
 
 
@@ -428,7 +542,7 @@ def main(folder: Path) -> int:
     written = generate(folder)
     print(f"Wrote {len(written)} resumes to {folder}")
     for path in written:
-        print(f"  {path.name}")
+        print(f"  {path.relative_to(folder)}")
     return 0
 
 
