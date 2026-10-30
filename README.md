@@ -75,14 +75,13 @@ The results page shows the five sections as chips, found ones in mint and missin
 
 ## Pages
 
-The bar at the top of every page links to four pages:
+The bar at the top of every page links to four pages, plus the login page:
 
 - **Home** (`/`): the landing page: what HireLens does, how it works, what you get and a note on privacy, with an example result and a button to the check.
 - **Check** (`/check`): paste a job description, upload a resume and read the results.
-- **History** (`/history`): lists the results of every resume checked in this browser, newest first, compares the latest with the one before, and has a button to clear them all.
-- **Profile** (`/profile`): will show the candidate's details.
-
-Profile is a placeholder until the site knows who the candidate is.
+- **History** (`/history`): lists the results of every resume checked, newest first, compares the latest with the one before, and has a button to clear them all. Logged in, it is the account's history on every device; logged out, it is this browser's.
+- **Profile** (`/profile`): the candidate's name, email, target role and location, and the Log out button. A visitor who is not logged in is pointed to the login page instead.
+- **Log in** (`/login`): log in, or create an account with an email, a password and a name.
 
 ## Design system
 

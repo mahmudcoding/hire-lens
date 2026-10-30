@@ -1,5 +1,6 @@
 import { cn } from '@heroui/react'
 import { Link, NavLink } from 'react-router'
+import { useAuth } from './auth.ts'
 
 const pages = [
   { to: '/', label: 'Home' },
@@ -15,6 +16,7 @@ const navLink = ({ isActive }: { isActive: boolean }) =>
   )
 
 export function Navbar() {
+  const { account } = useAuth()
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-background/85 backdrop-blur">
       <nav
@@ -34,9 +36,18 @@ export function Navbar() {
             </li>
           ))}
         </ul>
-        <Link to="/check" className="button button--primary button--sm ml-auto font-semibold">
-          Check my resume
-        </Link>
+        <div className="ml-auto flex items-center gap-2">
+          {account ? (
+            <span className="hidden text-sm text-muted sm:inline">{account.name}</span>
+          ) : (
+            <NavLink to="/login" className={navLink}>
+              Log in
+            </NavLink>
+          )}
+          <Link to="/check" className="button button--primary button--sm font-semibold">
+            Check my resume
+          </Link>
+        </div>
       </nav>
     </header>
   )

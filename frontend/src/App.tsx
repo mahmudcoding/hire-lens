@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Route, Routes, useLocation } from 'react-router'
 import type { UploadedResume } from './api.ts'
+import { AuthProvider } from './AuthProvider.tsx'
 import { HistoryPage } from './HistoryPage.tsx'
 import { HomePage } from './HomePage.tsx'
 import { LandingPage } from './LandingPage.tsx'
+import { LoginPage } from './LoginPage.tsx'
 import { Navbar } from './Navbar.tsx'
 import { ProfilePage } from './ProfilePage.tsx'
 
@@ -16,7 +18,7 @@ function App() {
   const isLanding = useLocation().pathname === '/'
 
   return (
-    <>
+    <AuthProvider>
       <Navbar />
       <main className={isLanding ? 'mx-auto max-w-[1040px] px-4 py-12 sm:py-20' : 'app'}>
         <Routes>
@@ -36,9 +38,10 @@ function App() {
           />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/login" element={<LoginPage />} />
         </Routes>
       </main>
-    </>
+    </AuthProvider>
   )
 }
 

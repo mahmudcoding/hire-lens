@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -27,6 +27,10 @@ vi.mock('./api.ts', () => ({
   recordResults: vi.fn(),
   getHistory: vi.fn(),
   clearHistory: vi.fn(),
+  login: vi.fn(),
+  register: vi.fn(),
+  getAccount: vi.fn(),
+  updateProfile: vi.fn(),
 }))
 
 const stored: UploadedResume = {
@@ -104,7 +108,11 @@ describe('App', () => {
     expect(screen.queryByRole('textbox', { name: 'Job description' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('link', { name: 'Profile' }))
-    expect(screen.getByRole('heading', { name: 'Profile' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Your profile' })).toBeInTheDocument()
+
+    const nav = screen.getByRole('navigation', { name: 'Main' })
+    await user.click(within(nav).getByRole('link', { name: 'Log in' }))
+    expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('link', { name: 'Home' }))
     expect(screen.getByRole('heading', { level: 1, name: /See your resume/ })).toBeInTheDocument()
