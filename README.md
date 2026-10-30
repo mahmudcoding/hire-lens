@@ -49,6 +49,8 @@ To check which sections (contact, summary, experience, education, skills) HireLe
 uv run python -m scripts.check_sections ../test-resumes
 ```
 
+`test-resumes/large/` holds six more resumes of about 1, 3 and 5 MB (PDF and DOCX) for timing the analysis (DP-51); see [How long the analysis takes](#how-long-the-analysis-takes).
+
 ## Consent and privacy
 
 Before uploading a resume, a candidate has to read the privacy notice and tick its consent checkbox (NFR-03); the upload controls stay disabled, and a dropped file is rejected with a message, until they do. The notice explains that a resume is stored only to generate the results, kept for up to 24 hours and then deleted automatically, and never shared with anyone else. The component is `frontend/src/ConsentNotice.tsx`.
@@ -117,6 +119,37 @@ HireLens keeps a candidate's earlier results so they can compare after improving
 The home page saves each resume's results as soon as it is analyzed (again a moment after the job description is edited) and shows how they compare with the resume checked before it. The browser keeps only the history ID, in `localStorage`. The components are `frontend/src/PreviousResults.tsx` and `frontend/src/HistoryPage.tsx`.
 
 Only the results are kept: scores, problems, keywords and the hiring chance, never the resume's file, text or file name, so the resume itself is still deleted after 24 hours (NFR-02). Each history is one file in `HIRELENS_HISTORY_DIR` (default `backend/storage/history`), encrypted with the same key as the resumes (NFR-01). The details are in `backend/app/history.py`.
+
+## How long the analysis takes
+
+NFR-05 asks for results within 30 seconds on resumes up to 5 MB. To measure it (DP-51), run this from `backend/`:
+
+```bash
+uv run python -m scripts.benchmark_analysis ../test-resumes/large
+```
+
+`test-resumes/large/` has resumes of about 1, 3 and 5 MB, each as a PDF and a DOCX. For every one the script prints the time of each step of the analysis on its own, then the time of each request the results page sends after a resume is dropped, and their total, which is how long the candidate waits. It takes the best of 3 runs and fails if any resume takes longer than 30 seconds. Add `--url https://...` to send the requests to a running API instead, such as the deployed one.
+
+Results on a development machine (Linux, Python 3.14), with the requests sent to the app in the same process, so without network time:
+
+| Resume | Extract text | Format checks | All requests (total) |
+| --- | ---: | ---: | ---: |
+| 1 MB DOCX | 12 ms | 29 ms | 0.3 s |
+| 3 MB DOCX | 18 ms | 34 ms | 0.6 s |
+| 5 MB DOCX | 27 ms | 52 ms | 0.9 s |
+| 1 MB PDF | 107 ms | 115 ms | 1.6 s |
+| 3 MB PDF | 335 ms | 324 ms | 5.1 s |
+| 5 MB PDF | 634 ms | 698 ms | 8.8 s |
+
+Every other step stays small even at 5 MB: storing (encrypting) the upload about 25 ms, reading it back (decrypting) about 20 ms, the keyword match about 20 ms, the PDF report about 30 ms, and the sections, hiring chance and suggestions about 1 ms each.
+
+Where the time goes:
+
+- **Reading PDFs.** Pulling the text out of a PDF and checking its layout (both with pdfplumber) are almost all of the time, and grow with the number of pages. DOCX files are about 10 to 25 times faster to read.
+- **Reading the same resume again for every request.** Each of the 9 requests decrypts the file and pulls its text out again, and the ATS score, hiring chance, suggestions, history and report requests also run the format checks again. So a 5 MB PDF that takes about 1.3 s to read and check once takes about 8.8 s in total. Reading each resume once and reusing the result would bring it close to that 1.3 s.
+- The 5 MB upload itself takes about 70 ms here; on the deployed app, sending 5 MB over the candidate's connection will add to that.
+
+These numbers are from a development machine, not the deployed app: there isn't a deployment yet (DP-34). Once there is, run the script with `--url` and add its numbers here.
 
 ## Encryption and HTTPS (NFR-01)
 
