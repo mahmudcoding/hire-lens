@@ -2,6 +2,7 @@ import { Chip, cn } from '@heroui/react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { recordResults, type AnalysisHistory, type UploadedResume } from './api.ts'
+import { useAuth } from './auth.ts'
 import { readHistoryId, saveHistoryId } from './historyId.ts'
 
 /** Waits for the candidate to stop typing before saving the results again. */
@@ -23,6 +24,9 @@ type Props = {
  */
 export function PreviousResults({ resume, jobDescription }: Props) {
   const [state, setState] = useState<RecordState>({ status: 'loading' })
+  const { account, updateProfile } = useAuth()
+  const accountHistoryId = account?.history_id ?? null
+  const loggedIn = account !== null
 
   useEffect(() => {
     const controller = new AbortController()
@@ -31,6 +35,12 @@ export function PreviousResults({ resume, jobDescription }: Props) {
       recordResults(resume.id, jobDescription, readHistoryId(), controller.signal).then(
         (history) => {
           saveHistoryId(history.history_id)
+          // A logged-in candidate's history follows their account to other devices.
+          if (loggedIn && accountHistoryId !== history.history_id) {
+            updateProfile({ history_id: history.history_id }).catch(() => {
+              // The results are saved either way; linking them can be retried next time.
+            })
+          }
           setState({ status: 'done', history })
         },
         (error: unknown) => {
@@ -47,7 +57,7 @@ export function PreviousResults({ resume, jobDescription }: Props) {
       clearTimeout(timer)
       controller.abort()
     }
-  }, [resume.id, jobDescription])
+  }, [resume.id, jobDescription, loggedIn, accountHistoryId, updateProfile])
 
   return (
     <section className="mt-8" aria-labelledby="previous-results-title">

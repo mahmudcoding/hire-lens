@@ -75,14 +75,13 @@ The results page shows the five sections as chips, found ones in mint and missin
 
 ## Pages
 
-The bar at the top of every page links to four pages:
+The bar at the top of every page links to four pages, plus the login page:
 
 - **Home** (`/`): the landing page: what HireLens does, how it works, what you get and a note on privacy, with an example result and a button to the check.
 - **Check** (`/check`): paste a job description, upload a resume and read the results.
-- **History** (`/history`): lists the results of every resume checked in this browser, newest first, compares the latest with the one before, and has a button to clear them all.
-- **Profile** (`/profile`): will show the candidate's details.
-
-Profile is a placeholder until the site knows who the candidate is.
+- **History** (`/history`): lists the results of every resume checked, newest first, compares the latest with the one before, and has a button to clear them all. Logged in, it is the account's history on every device; logged out, it is this browser's.
+- **Profile** (`/profile`): the candidate's name, email, target role and location, and the Log out button. A visitor who is not logged in is pointed to the login page instead.
+- **Log in** (`/login`): log in, or create an account with an email, a password and a name.
 
 ## Design system
 
@@ -120,6 +119,12 @@ HireLens keeps a candidate's earlier results so they can compare after improving
 The home page saves each resume's results as soon as it is analyzed (again a moment after the job description is edited) and shows how they compare with the resume checked before it. The browser keeps only the history ID, in `localStorage`. The components are `frontend/src/PreviousResults.tsx` and `frontend/src/HistoryPage.tsx`.
 
 Only the results are kept: scores, problems, keywords and the hiring chance, never the resume's file, text or file name, so the resume itself is still deleted after 24 hours (NFR-02). Each history is one file in `HIRELENS_HISTORY_DIR` (default `backend/storage/history`), encrypted with the same key as the resumes (NFR-01). The details are in `backend/app/history.py`.
+
+## Accounts
+
+A candidate can use HireLens without an account. An account (FR-11) keeps their profile and their previous results on every device. `POST /api/auth/register` with `{"email": "...", "password": "...", "name": "..."}` creates one (the password needs at least 8 characters) and `POST /api/auth/login` with the email and password logs in; both return a session token and the account. Later requests send the token as `Authorization: Bearer <token>`: `GET /api/auth/me` reads the account and `PUT /api/auth/me` changes the profile fields given (`name`, `target_role`, `location`, and `history_id`, which the check page sets so that the account's history follows it). Logging out is the browser forgetting the token.
+
+Passwords are stored only as a salted scrypt hash. Accounts are one file in `HIRELENS_ACCOUNTS_DIR` (default `backend/storage/accounts`), encrypted with the same key as the resumes (NFR-01). Sessions are stateless: a token is the account ID encrypted with that key, and it expires after 7 days. Without `HIRELENS_ENCRYPTION_KEY` set, a restart of the API generates a new key, which makes the accounts and sessions saved before it unreadable, so set one before a demo. The details are in `backend/app/accounts.py` and `backend/app/auth.py`.
 
 ## How long the analysis takes
 
