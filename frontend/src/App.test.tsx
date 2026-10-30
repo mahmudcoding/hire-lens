@@ -81,16 +81,23 @@ describe('App', () => {
     localStorage.clear()
   })
 
-  it('shows the product name and opens on the main page', () => {
+  it('shows the product name and opens on the landing page', () => {
     renderApp()
 
     expect(screen.getByRole('link', { name: 'HireLens.' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Check your resume' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'See your resume the way an ATS does.' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Job description' })).not.toBeInTheDocument()
   })
 
-  it('opens the History and Profile pages from the navigation bar', async () => {
+  it('opens every page from the navigation bar', async () => {
     const user = userEvent.setup()
     renderApp()
+
+    await user.click(screen.getByRole('link', { name: 'Check' }))
+    expect(screen.getByRole('heading', { name: 'Check your resume' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Job description' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('link', { name: 'History' }))
     expect(screen.getByRole('heading', { name: 'Previous results' })).toBeInTheDocument()
@@ -100,26 +107,26 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: 'Profile' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('link', { name: 'Home' }))
-    expect(screen.getByRole('textbox', { name: 'Job description' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: /See your resume/ })).toBeInTheDocument()
   })
 
   it('keeps the results after a visit to another page', async () => {
     const user = userEvent.setup()
-    renderApp()
+    renderApp('/check')
 
     await user.click(screen.getByRole('checkbox', { name: /privacy notice/ }))
     await user.upload(screen.getByLabelText('Resume file'), pdf())
     expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
 
     await user.click(screen.getByRole('link', { name: 'Profile' }))
-    await user.click(screen.getByRole('link', { name: 'Home' }))
+    await user.click(screen.getByRole('link', { name: 'Check' }))
 
     expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
   })
 
   it('analyses the resume when the job description is left empty', async () => {
     const user = userEvent.setup()
-    renderApp()
+    renderApp('/check')
 
     expect(screen.getByRole('textbox', { name: 'Job description' })).toHaveValue('')
     await user.click(screen.getByRole('checkbox', { name: /privacy notice/ }))
@@ -137,7 +144,7 @@ describe('App', () => {
 
   it('keeps the pasted job description when another resume is uploaded', async () => {
     const user = userEvent.setup()
-    renderApp()
+    renderApp('/check')
     const box = screen.getByRole('textbox', { name: 'Job description' })
 
     await user.click(box)
@@ -155,7 +162,7 @@ describe('App', () => {
 
   it('blocks the upload until the privacy notice is accepted (DP-30)', async () => {
     const user = userEvent.setup()
-    renderApp()
+    renderApp('/check')
 
     expect(screen.getByRole('button', { name: 'Choose a file' })).toBeDisabled()
     fireEvent.drop(screen.getByTestId('dropzone'), {
