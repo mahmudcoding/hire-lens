@@ -120,6 +120,12 @@ The home page saves each resume's results as soon as it is analyzed (again a mom
 
 Only the results are kept: scores, problems, keywords and the hiring chance, never the resume's file, text or file name, so the resume itself is still deleted after 24 hours (NFR-02). Each history is one file in `HIRELENS_HISTORY_DIR` (default `backend/storage/history`), encrypted with the same key as the resumes (NFR-01). The details are in `backend/app/history.py`.
 
+## Accounts
+
+A candidate can use HireLens without an account. An account (FR-11) keeps their profile and their previous results on every device. `POST /api/auth/register` with `{"email": "...", "password": "...", "name": "..."}` creates one (the password needs at least 8 characters) and `POST /api/auth/login` with the email and password logs in; both return a session token and the account. Later requests send the token as `Authorization: Bearer <token>`: `GET /api/auth/me` reads the account and `PUT /api/auth/me` changes the profile fields given (`name`, `target_role`, `location`, and `history_id`, which the check page sets so that the account's history follows it). Logging out is the browser forgetting the token.
+
+Passwords are stored only as a salted scrypt hash. Accounts are one file in `HIRELENS_ACCOUNTS_DIR` (default `backend/storage/accounts`), encrypted with the same key as the resumes (NFR-01). Sessions are stateless: a token is the account ID encrypted with that key, and it expires after 7 days. Without `HIRELENS_ENCRYPTION_KEY` set, a restart of the API generates a new key, which makes the accounts and sessions saved before it unreadable, so set one before a demo. The details are in `backend/app/accounts.py` and `backend/app/auth.py`.
+
 ## How long the analysis takes
 
 NFR-05 asks for results within 30 seconds on resumes up to 5 MB. To measure it (DP-51), run this from `backend/`:
