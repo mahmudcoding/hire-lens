@@ -30,13 +30,6 @@ LARGE_RESUMES = Path(__file__).resolve().parents[2] / "test-resumes" / "large"
 
 
 @pytest.fixture
-def jobs():
-    jobs = AnalysisJobs()
-    yield jobs
-    jobs.shutdown()
-
-
-@pytest.fixture
 def docx_bytes(tmp_path):
     path = tmp_path / "resume.docx"
     document = Document()

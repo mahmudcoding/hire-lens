@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 
-from app import auth, config, histories, resumes
+from app import analyses, auth, config, histories, resumes
 from app.errors import add_error_handler, error_response
 
 # Room for the multipart form around the file itself: boundaries, headers and
@@ -40,6 +40,7 @@ def create_app() -> FastAPI:
 
     add_error_handler(app)
     app.include_router(resumes.router)
+    app.include_router(analyses.router)
     app.include_router(histories.router)
     app.include_router(auth.router)
 
