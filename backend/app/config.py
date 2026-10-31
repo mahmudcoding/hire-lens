@@ -15,6 +15,10 @@ MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 # description box has the same limit.
 MAX_JOB_DESCRIPTION_LENGTH = 10_000
 
+# Longest a resume's analysis may take before it is cancelled (NFR-05: results
+# within 30 seconds). The benchmark in DP-51 puts a 5 MB PDF at about 9 s.
+ANALYSIS_TIMEOUT_SECONDS = 30
+
 # Where uploaded resumes are kept until they are analyzed.
 STORAGE_DIR = Path(os.environ.get("HIRELENS_STORAGE_DIR", BACKEND_DIR / "storage"))
 
