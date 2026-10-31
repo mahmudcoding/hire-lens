@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from app.ats_score import MAX_SCORE, calculate_ats_score
 from app.config import MAX_JOB_DESCRIPTION_LENGTH, MAX_UPLOAD_BYTES
+from app.errors import CodedError
 from app.extraction import UnreadableResume, extract_text
 from app.file_types import UnsupportedFileType, detect_file_type
 from app.format_checks import check_format
@@ -127,19 +128,17 @@ async def upload_resume(
     """Store a PDF or DOCX resume of up to 5 MB and return its ID."""
     data = await file.read(MAX_UPLOAD_BYTES + 1)
     if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(
-            status.HTTP_413_CONTENT_TOO_LARGE,
-            f"The file is larger than {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
-        )
+        raise file_too_large()
     if not data:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "The file is empty.")
+        raise CodedError(status.HTTP_400_BAD_REQUEST, "empty_file", "The file is empty.")
 
     filename = file.filename or ""
     try:
         file_type = detect_file_type(filename, data)
     except UnsupportedFileType:
-        raise HTTPException(
+        raise CodedError(
             status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            "unsupported_file_type",
             "Only PDF and DOCX files are supported.",
         ) from None
 
@@ -362,6 +361,15 @@ def record_results(
     entry = entry_from_analysis(stored.id, analysis, datetime.now(UTC))
     history_id, entries = history.record(body.history_id, entry)
     return history_out(history_id, entries)
+
+
+def file_too_large() -> CodedError:
+    return CodedError(
+        status.HTTP_413_CONTENT_TOO_LARGE,
+        "file_too_large",
+        f"The file is larger than {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
+        max_bytes=MAX_UPLOAD_BYTES,
+    )
 
 
 def _read_resume(resume_id: str, storage: ResumeStorage) -> tuple[StoredResume, bytes, str]:
