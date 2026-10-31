@@ -61,7 +61,10 @@ def test_files_that_are_not_pdf_or_docx_are_rejected(client, storage, filename, 
     response = upload(client, filename, data)
 
     assert response.status_code == 415
-    assert response.json() == {"detail": "Only PDF and DOCX files are supported."}
+    assert response.json() == {
+        "detail": "Only PDF and DOCX files are supported.",
+        "code": "unsupported_file_type",
+    }
     assert stored_files(storage) == []
 
 
@@ -77,7 +80,26 @@ def test_a_file_over_5_mb_is_rejected(client, storage):
     response = upload(client, "resume.pdf", data)
 
     assert response.status_code == 413
-    assert response.json() == {"detail": "The file is larger than 5 MB."}
+    assert response.json() == {
+        "detail": "The file is larger than 5 MB.",
+        "code": "file_too_large",
+        "max_bytes": MAX_UPLOAD_BYTES,
+    }
+    assert stored_files(storage) == []
+
+
+def test_an_upload_that_says_it_is_over_5_mb_is_rejected_before_it_is_read(client, storage):
+    response = client.post(
+        "/api/resumes",
+        content=b"x",
+        headers={
+            "content-type": "multipart/form-data; boundary=x",
+            "content-length": str(MAX_UPLOAD_BYTES * 2),
+        },
+    )
+
+    assert response.status_code == 413
+    assert response.json()["code"] == "file_too_large"
     assert stored_files(storage) == []
 
 
@@ -85,5 +107,5 @@ def test_an_empty_file_is_rejected(client, storage):
     response = upload(client, "resume.pdf", b"")
 
     assert response.status_code == 400
-    assert response.json() == {"detail": "The file is empty."}
+    assert response.json() == {"detail": "The file is empty.", "code": "empty_file"}
     assert stored_files(storage) == []

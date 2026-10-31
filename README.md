@@ -157,6 +157,14 @@ Where the time goes:
 
 These numbers are from a development machine, not the deployed app: there isn't a deployment yet (DP-34). Once there is, run the script with `--url` and add its numbers here.
 
+## Running the whole analysis at once
+
+`POST /api/resumes/{id}/analysis` with an optional `{"job_description": "..."}` starts the whole analysis in the background and answers at once (202) with a job. `GET /api/analyses/{job_id}` then shows how far it has got (NFR-05): a `status` (`running`, `done`, `failed` or `timed_out`), a `progress` from 0 to 100, and four `steps` (parsing, format checks, scoring, suggestions), each `pending`, `running`, `done`, `failed` or `cancelled`, with how long it took. Once the job is `done`, its `result` holds the sections, ATS score, keyword match (only with a job description), hiring chance and suggestions, exactly as the separate endpoints above return them. The resume is read once for all of them, rather than once per request.
+
+An analysis still running after 30 seconds is cancelled and comes back as `timed_out` with the error code `analysis_timeout`. A step that is already running can't be interrupted, but its result is thrown away and no later step starts. A resume with no readable text fails with `resume_unreadable`. Finished jobs are kept in memory for an hour, then forgotten. The details are in `backend/app/analysis_jobs.py` and `backend/app/analyses.py`.
+
+Uploads over 5 MB are turned away with a 413 and a structured error, `{"detail": "The file is larger than 5 MB.", "code": "file_too_large", "max_bytes": 5242880}`; a request that says it is that large is refused before any of it is read. Every error with a `code` also has a `detail` with the message to show.
+
 ## Encryption and HTTPS (NFR-01)
 
 Resumes are encrypted at rest: `backend/app/storage.py` encrypts every file with [Fernet](https://cryptography.io/en/latest/fernet/) before it touches disk, and only ever decrypts into memory, never back to another file. The key comes from `HIRELENS_ENCRYPTION_KEY`; without it, a random key is generated for that process only, so a restart makes resumes saved before it unreadable (safe, since they're deleted automatically within 24 hours anyway - DP-29 - but set a real key before deploying). See `.env.example`.

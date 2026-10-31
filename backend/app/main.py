@@ -1,7 +1,12 @@
 from fastapi import FastAPI
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 
-from app import auth, config, histories, resumes
+from app import analyses, auth, config, histories, resumes
+from app.errors import add_error_handler, error_response
+
+# Room for the multipart form around the file itself: boundaries, headers and
+# the file name.
+UPLOAD_FORM_OVERHEAD_BYTES = 64 * 1024
 
 
 def create_app() -> FastAPI:
@@ -22,7 +27,20 @@ def create_app() -> FastAPI:
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
 
+    @app.middleware("http")
+    async def reject_large_uploads(request, call_next):
+        # Turns away an upload that says it is over the limit before reading
+        # any of it. The upload endpoint checks the file itself as well, for
+        # requests that don't say how big they are.
+        if request.method == "POST" and request.url.path == "/api/resumes":
+            length = request.headers.get("content-length", "")
+            if length.isdigit() and int(length) > config.MAX_UPLOAD_BYTES + UPLOAD_FORM_OVERHEAD_BYTES:
+                return error_response(resumes.file_too_large())
+        return await call_next(request)
+
+    add_error_handler(app)
     app.include_router(resumes.router)
+    app.include_router(analyses.router)
     app.include_router(histories.router)
     app.include_router(auth.router)
 

@@ -3,6 +3,7 @@ from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 
 from app.accounts import AccountStore, get_accounts
+from app.analysis_jobs import AnalysisJobs, get_jobs
 from app.history import AnalysisHistory, get_history
 from app.main import app
 from app.storage import ResumeStorage, get_storage
@@ -24,7 +25,15 @@ def accounts(tmp_path) -> AccountStore:
 
 
 @pytest.fixture
-def client(storage, history, accounts):
+def jobs():
+    jobs = AnalysisJobs()
+    yield jobs
+    jobs.shutdown()
+
+
+@pytest.fixture
+def client(storage, history, accounts, jobs):
+    app.dependency_overrides[get_jobs] = lambda: jobs
     app.dependency_overrides[get_storage] = lambda: storage
     app.dependency_overrides[get_history] = lambda: history
     app.dependency_overrides[get_accounts] = lambda: accounts
