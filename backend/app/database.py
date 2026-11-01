@@ -8,7 +8,8 @@ the anonymous analyze flow, which never touches the database, keeps working
 even with no database at all.
 
 The tables are defined below as SQLAlchemy models. Their schema is created
-and changed by migrations, never by the app itself.
+and changed by the Alembic migrations in backend/migrations, never by the
+app itself: run `uv run alembic upgrade head` from backend/ (see README).
 """
 
 import uuid
@@ -21,7 +22,9 @@ from sqlalchemy import DateTime, Engine, String, create_engine, event
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
-from app.config import DATABASE_URL
+from app.config import BACKEND_DIR, DATABASE_URL
+
+ALEMBIC_INI = BACKEND_DIR / "alembic.ini"
 
 # Longest email the users table accepts. RFC 5321 limits an address to 254
 # characters.
@@ -85,3 +88,21 @@ def get_session() -> Iterator[Session]:
     """A FastAPI dependency: one session per request, closed afterwards."""
     with _session_factory(get_engine())() as session:
         yield session
+
+
+def alembic_config(url: str | None = None):
+    """The Alembic config for the migrations, aimed at `url` if given."""
+    from alembic.config import Config
+
+    config = Config(str(ALEMBIC_INI))
+    config.attributes["configure_logging"] = False
+    if url is not None:
+        config.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
+    return config
+
+
+def upgrade_database(url: str | None = None, revision: str = "head") -> None:
+    """Runs the migrations up to `revision` on `url` (default: HIRELENS_DATABASE_URL)."""
+    from alembic import command
+
+    command.upgrade(alembic_config(url), revision)
