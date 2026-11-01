@@ -30,6 +30,12 @@ HISTORY_DIR = Path(os.environ.get("HIRELENS_HISTORY_DIR", STORAGE_DIR / "history
 # password hashes and profiles. Never a resume.
 ACCOUNTS_DIR = Path(os.environ.get("HIRELENS_ACCOUNTS_DIR", STORAGE_DIR / "accounts"))
 
+# The database behind the API (DP-61): accounts now, saved resumes later. Any
+# SQLAlchemy URL works, so production can point this at Postgres
+# (postgresql+psycopg://user:password@host/hirelens); local development and
+# tests use a SQLite file inside the storage folder.
+DATABASE_URL = os.environ.get("HIRELENS_DATABASE_URL", f"sqlite:///{STORAGE_DIR / 'hirelens.db'}")
+
 # Redirect HTTP to HTTPS and send Strict-Transport-Security (NFR-01 / DP-19).
 # Off by default so local dev (plain http://localhost:8000) keeps working;
 # a real deployment should set this once it has TLS termination in front of
