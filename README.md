@@ -126,6 +126,25 @@ A candidate can use HireLens without an account. An account (FR-11) keeps their 
 
 Passwords are stored only as a salted scrypt hash. Accounts are one file in `HIRELENS_ACCOUNTS_DIR` (default `backend/storage/accounts`), encrypted with the same key as the resumes (NFR-01). Sessions are stateless: a token is the account ID encrypted with that key, and it expires after 7 days. Without `HIRELENS_ENCRYPTION_KEY` set, a restart of the API generates a new key, which makes the accounts and sessions saved before it unreadable, so set one before a demo. The details are in `backend/app/accounts.py` and `backend/app/auth.py`.
 
+## The database
+
+The API has a database (DP-61) for accounts and, later, saved resumes. It is reached through [SQLAlchemy](https://www.sqlalchemy.org/), and its connection string comes from `HIRELENS_DATABASE_URL`. Without it, local development uses a SQLite file, `hirelens.db` in the storage folder (`backend/storage/` by default), so there is nothing to install. In production, point it at Postgres, for example `postgresql+psycopg://hirelens:password@host/hirelens` (add the `psycopg` driver to the backend for that).
+
+So far it has one table, `users`: `id`, `email` (unique), `password_hash` and `created_at`. The models are in `backend/app/database.py`. The accounts above still live in their encrypted file until logging in moves to the database (DP-62).
+
+The schema is managed with [Alembic](https://alembic.sqlalchemy.org/) migrations in `backend/migrations/`; the app never creates or changes tables by itself. Run them from `backend/` before starting the API for the first time, and again after pulling a change that adds a migration:
+
+```bash
+uv run alembic upgrade head        # create or update the tables
+uv run alembic current             # show which migration the database is at
+uv run alembic downgrade -1        # undo the last migration
+uv run alembic upgrade head --sql  # print the SQL instead of running it
+```
+
+They run against whatever `HIRELENS_DATABASE_URL` points to. After changing a model in `backend/app/database.py`, add a migration with `uv run alembic revision --autogenerate -m "what changed"`, check the file it writes in `backend/migrations/versions/`, and commit it; a test fails if the models and the migrations disagree.
+
+The tests never touch the development database: every test run gets a SQLite file of its own in a fresh temporary folder, and every test that needs the database gets a new, empty one built by the migrations. Analyzing a resume without an account never touches the database at all, and the app starts without connecting to it, so the anonymous flow keeps working even with no database set up.
+
 ## How long the analysis takes
 
 NFR-05 asks for results within 30 seconds on resumes up to 5 MB. To measure it (DP-51), run this from `backend/`:
@@ -178,6 +197,7 @@ The app itself does no logging beyond uvicorn's own request logs (method, path, 
 ```
 backend/                  FastAPI app (Python, managed by uv)
   app/                    application code
+  migrations/             Alembic database migrations (DP-61)
   tests/                  pytest tests
 frontend/                 React + TypeScript app (Vite)
   src/

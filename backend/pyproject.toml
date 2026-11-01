@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "HireLens API: resume upload, parsing and scoring"
 requires-python = ">=3.12"
 dependencies = [
+    "alembic>=1.20.1",
     "cryptography>=50.0.2",
     "fastapi>=0.143.2",
     "fpdf2>=2.8.9",

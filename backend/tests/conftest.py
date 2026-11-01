@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.accounts import AccountStore, get_accounts
 from app.analysis_jobs import AnalysisJobs, get_jobs
-from app.database import Base, make_engine
+from app.database import make_engine, upgrade_database
 from app.history import AnalysisHistory, get_history
 from app.main import app
 from app.storage import ResumeStorage, get_storage
@@ -37,9 +37,10 @@ def accounts(tmp_path) -> AccountStore:
 
 @pytest.fixture
 def db_engine(tmp_path):
-    """A new, empty SQLite database with every table, for one test."""
-    engine = make_engine(f"sqlite:///{tmp_path / 'db' / 'hirelens.db'}")
-    Base.metadata.create_all(engine)
+    """A new, empty SQLite database for one test, built by the migrations."""
+    url = f"sqlite:///{tmp_path / 'db' / 'hirelens.db'}"
+    upgrade_database(url)
+    engine = make_engine(url)
     yield engine
     engine.dispose()
 
