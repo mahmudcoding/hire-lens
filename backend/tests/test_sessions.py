@@ -110,26 +110,29 @@ def test_logging_out_one_session_leaves_the_others(client):
 
     assert client.post("/api/auth/logout", headers=csrf(client)).status_code == 204
 
-    assert client.get("/api/auth/me", headers={"Authorization": f"Bearer {first}"}).status_code == 200
+    client.cookies.set(SESSION_COOKIE, first, path="/api")
+    assert client.get("/api/auth/me").status_code == 200
 
 
-def test_a_bearer_token_needs_no_csrf_header_and_wins_over_the_cookie(client):
-    first = signup(client).json()["token"]
-    client.post("/api/auth/logout", headers=csrf(client))
-    client.post("/api/auth/login", json={"email": EMAIL, "password": PASSWORD})
+def test_the_token_is_never_in_a_response_body(client):
+    response = signup(client)
+    token = client.cookies[SESSION_COOKIE]
 
-    # The frontend still sends the bearer token, with the cookies alongside it.
-    response = client.put(
-        "/api/auth/me", json={"location": "Tashkent"}, headers={"Authorization": f"Bearer {first}"}
-    )
+    assert "token" not in response.json()
+    assert token not in response.text
+    login = client.post("/api/auth/login", json={"email": EMAIL, "password": PASSWORD})
+    assert client.cookies[SESSION_COOKIE] not in login.text
+
+
+def test_a_bearer_header_is_not_a_session(client):
+    signup(client)
+    token = client.cookies[SESSION_COOKIE]
+    client.cookies.clear()
+
+    response = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 401
-    assert response.json()["detail"] == SESSION_EXPIRED
-    second = client.cookies[SESSION_COOKIE]
-    response = client.put(
-        "/api/auth/me", json={"location": "Tashkent"}, headers={"Authorization": f"Bearer {second}"}
-    )
-    assert response.status_code == 200
+    assert response.json()["detail"] == LOGIN_REQUIRED
 
 
 def test_logging_out_when_logged_out_is_fine(client):
