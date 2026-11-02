@@ -8,15 +8,19 @@ on another browser brings their previous results along.
 All accounts live in one JSON file, encrypted at rest with the same Fernet
 key as the resumes (NFR-01). Passwords are never stored, only a salted
 argon2id hash of each (DP-62). Accounts made before that have a scrypt hash,
-which is still checked and replaced with an argon2id one at the next login. Sessions are stateless: a session token is the account
-ID encrypted with the same key, and Fernet's own timestamp expires it after
-SESSION_TTL_SECONDS, so there is no session list to keep or clean up.
+which is still checked and replaced with an argon2id one at the next login. A session token is the account ID and a random session ID
+encrypted with the same key, and Fernet's own timestamp expires it after
+SESSION_TTL_SECONDS, so there is no list of sessions to keep. Logging out
+(DP-62) records the session ID as revoked until the token would have expired
+anyway, so a copy of a logged-out token is refused too.
 """
 
 import hashlib
 import hmac
 import json
 import os
+import secrets
+import time
 import uuid
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
@@ -63,7 +67,7 @@ class AccountNotFound(Exception):
 
 
 class InvalidSession(Exception):
-    """The session token is malformed, expired, or for an account that is gone."""
+    """The session token is malformed, expired, logged out, or for an account that is gone."""
 
 
 @dataclass(frozen=True)
@@ -181,19 +185,58 @@ class AccountStore:
         return account
 
     def issue_token(self, account: Account) -> str:
-        return self._fernet.encrypt(_TOKEN_PREFIX + account.id.encode()).decode()
+        session_id = secrets.token_hex(16)
+        return self._fernet.encrypt(_TOKEN_PREFIX + f"{account.id}:{session_id}".encode()).decode()
 
     def account_from_token(self, token: str) -> Account:
+        account_id, session_id, _ = self._open_token(token)
+        if session_id in self._read_revoked():
+            raise InvalidSession()
+        try:
+            return self.get(account_id)
+        except AccountNotFound as error:
+            raise InvalidSession() from error
+
+    def revoke_token(self, token: str) -> None:
+        """Logs a session out: its token is refused from now on. A bad token is ignored."""
+        try:
+            _, session_id, issued_at = self._open_token(token)
+        except InvalidSession:
+            return
+        revoked = self._read_revoked()
+        # Kept only until the token would have expired by itself.
+        revoked[session_id] = issued_at + SESSION_TTL_SECONDS
+        self._save(self._revoked_path, revoked)
+
+    def _open_token(self, token: str) -> tuple[str, str, int]:
+        """The account ID, session ID and issue time inside a valid, unexpired token."""
         try:
             data = self._fernet.decrypt(token.encode(), ttl=SESSION_TTL_SECONDS)
+            issued_at = self._fernet.extract_timestamp(token.encode())
         except (InvalidToken, TypeError, ValueError) as error:
             raise InvalidSession() from error
         if not data.startswith(_TOKEN_PREFIX):
             raise InvalidSession()
+        account_id, _, session_id = data.removeprefix(_TOKEN_PREFIX).decode().partition(":")
+        if not account_id or not session_id:
+            raise InvalidSession()
+        return account_id, session_id, issued_at
+
+    @property
+    def _revoked_path(self) -> Path:
+        return self.root / "revoked_sessions.json"
+
+    def _read_revoked(self) -> dict[str, int]:
+        """Logged-out session IDs and when their tokens expire, leaving out expired ones."""
+        if not self._revoked_path.is_file():
+            return {}
         try:
-            return self.get(data.removeprefix(_TOKEN_PREFIX).decode())
-        except AccountNotFound as error:
-            raise InvalidSession() from error
+            revoked = json.loads(self._fernet.decrypt(self._revoked_path.read_bytes()))
+        except InvalidToken:
+            # The key changed, so every token made with the old one is invalid anyway.
+            return {}
+        now = time.time()
+        return {session_id: expires for session_id, expires in revoked.items() if expires > now}
 
     @property
     def _path(self) -> Path:
@@ -211,17 +254,18 @@ class AccountStore:
         return {item["id"]: Account(**item) for item in data}
 
     def _write(self, accounts: dict[str, Account]) -> None:
+        self._save(self._path, [asdict(account) for account in accounts.values()])
+
+    def _save(self, path: Path, data: object) -> None:
         self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
-        encrypted = self._fernet.encrypt(
-            json.dumps([asdict(account) for account in accounts.values()]).encode()
-        )
+        encrypted = self._fernet.encrypt(json.dumps(data).encode())
         # Written to a temporary file first and then swapped in, so a crash
         # halfway through can't leave a half-written file behind.
-        temporary = self._path.with_suffix(f".{uuid.uuid4().hex}.tmp")
+        temporary = path.with_suffix(f".{uuid.uuid4().hex}.tmp")
         fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, "wb") as file:
             file.write(encrypted)
-        os.replace(temporary, self._path)
+        os.replace(temporary, path)
 
 
 def get_accounts() -> AccountStore:

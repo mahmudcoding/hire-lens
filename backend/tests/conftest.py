@@ -71,6 +71,8 @@ def client(storage, history, accounts, jobs, login_limiter):
     app.dependency_overrides[get_storage] = lambda: storage
     app.dependency_overrides[get_history] = lambda: history
     app.dependency_overrides[get_accounts] = lambda: accounts
-    with TestClient(app) as test_client:
+    # HTTPS, since the session cookies are Secure (DP-62) and a client only
+    # sends those over HTTPS.
+    with TestClient(app, base_url="https://testserver") as test_client:
         yield test_client
     app.dependency_overrides.clear()

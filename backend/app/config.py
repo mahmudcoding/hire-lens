@@ -42,6 +42,12 @@ DATABASE_URL = os.environ.get("HIRELENS_DATABASE_URL", f"sqlite:///{STORAGE_DIR 
 # it (a reverse proxy, load balancer or hosting platform - see DP-34).
 FORCE_HTTPS = os.environ.get("HIRELENS_FORCE_HTTPS", "false").lower() == "true"
 
+# Mark the session cookies Secure, so browsers only send them over HTTPS
+# (DP-62). Browsers treat http://localhost as secure, so local dev works with
+# this on; set HIRELENS_COOKIE_SECURE=false only for a browser that doesn't,
+# and never in a deployment.
+COOKIE_SECURE = os.environ.get("HIRELENS_COOKIE_SECURE", "true").lower() != "false"
+
 
 @lru_cache
 def get_fernet() -> Fernet:
