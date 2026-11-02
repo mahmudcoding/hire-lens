@@ -16,6 +16,7 @@ from app.accounts import AccountStore, get_accounts
 from app.analysis_jobs import AnalysisJobs, get_jobs
 from app.database import make_engine, upgrade_database
 from app.history import AnalysisHistory, get_history
+from app.login_limits import LoginLimiter, get_login_limiter
 from app.main import app
 from app.storage import ResumeStorage, get_storage
 
@@ -59,7 +60,13 @@ def jobs():
 
 
 @pytest.fixture
-def client(storage, history, accounts, jobs):
+def login_limiter() -> LoginLimiter:
+    return LoginLimiter()
+
+
+@pytest.fixture
+def client(storage, history, accounts, jobs, login_limiter):
+    app.dependency_overrides[get_login_limiter] = lambda: login_limiter
     app.dependency_overrides[get_jobs] = lambda: jobs
     app.dependency_overrides[get_storage] = lambda: storage
     app.dependency_overrides[get_history] = lambda: history
