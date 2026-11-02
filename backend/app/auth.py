@@ -1,16 +1,35 @@
-"""API for candidate accounts (FR-11): sign up, log in, read and edit the profile.
+"""API for candidate accounts (FR-11, DP-62): sign up, log in, log out, and
+read and edit the profile.
 
-A successful sign-up or login returns a session token. Later requests send it
-as `Authorization: Bearer <token>`. Logging out is the client forgetting the
-token: tokens are stateless and expire on their own (see accounts.py).
+A successful sign-up or login starts a session kept in the SESSION_COOKIE
+cookie: httpOnly, so the page's scripts can never read it, Secure, so it is
+only sent over HTTPS, and SameSite=Lax, so other sites can't send it along
+with their own form posts. Logging out revokes the session on the server and
+clears the cookie.
+
+Every state-changing request (anything but GET, HEAD and OPTIONS) that acts
+as the logged-in candidate through the session cookie must also carry the
+CSRF_HEADER header, with the value of the CSRF_COOKIE cookie set next to it:
+the double-submit pattern. A page on another site can make the browser send
+the cookies, but it can't read them, so it can't copy the value into the
+header. Endpoints get this by depending on current_account; requests that
+don't use the session, such as an anonymous upload, have nothing to forge.
+
+For now the token is also returned in the body and accepted as
+`Authorization: Bearer <token>`, which the frontend still uses until it
+moves to the cookie.
 """
 
+import hmac
+import secrets
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
+from app import config
 from app.accounts import (
+    SESSION_TTL_SECONDS,
     Account,
     AccountStore,
     EmailTaken,
@@ -23,6 +42,11 @@ from app.login_limits import LoginLimiter, get_login_limiter, too_many_attempts_
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
+SESSION_COOKIE = "hirelens_session"
+CSRF_COOKIE = "hirelens_csrf"
+CSRF_HEADER = "X-CSRF-Token"
+SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
 # Loose on purpose: the only way to really validate an email is to send one to it.
 EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 MIN_PASSWORD_LENGTH = 8
@@ -33,6 +57,7 @@ LOGIN_REQUIRED = "Please log in to do that."
 SESSION_EXPIRED = "Your session has expired. Please log in again."
 WRONG_CREDENTIALS = "Wrong email or password."
 EMAIL_TAKEN = "An account with this email already exists. Log in instead."
+CSRF_FAILED = "Your session could not be confirmed. Please reload the page and try again."
 
 
 class AccountOut(BaseModel):
@@ -76,37 +101,100 @@ class ProfileIn(BaseModel):
 
 
 def current_account(
+    request: Request,
     store: Annotated[AccountStore, Depends(get_accounts)],
     authorization: Annotated[str | None, Header()] = None,
 ) -> Account:
-    """The account behind the request's bearer token, or a 401."""
-    scheme, _, token = (authorization or "").partition(" ")
-    if scheme.lower() != "bearer" or not token.strip():
+    """The account behind the request's bearer token or session cookie, or a 401.
+
+    A state-changing request that uses the cookie also needs the CSRF header,
+    or gets a 403.
+    """
+    token = bearer_token(authorization)
+    if token is None:
+        token = request.cookies.get(SESSION_COOKIE, "").strip() or None
+        if token is not None:
+            check_csrf(request)
+    if not token:
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED, LOGIN_REQUIRED, headers={"WWW-Authenticate": "Bearer"}
         )
     try:
-        return store.account_from_token(token.strip())
+        return store.account_from_token(token)
     except InvalidSession:
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED, SESSION_EXPIRED, headers={"WWW-Authenticate": "Bearer"}
         ) from None
 
 
+def bearer_token(authorization: str | None) -> str | None:
+    """The token in an `Authorization: Bearer` header. Another site can't make
+    the browser add that header, so a request using it needs no CSRF check."""
+    scheme, _, token = (authorization or "").partition(" ")
+    if scheme.lower() == "bearer" and token.strip():
+        return token.strip()
+    return None
+
+
+def check_csrf(request: Request) -> None:
+    """Refuses a state-changing request whose CSRF header doesn't match its CSRF cookie."""
+    if request.method in SAFE_METHODS:
+        return
+    expected = request.cookies.get(CSRF_COOKIE, "")
+    given = request.headers.get(CSRF_HEADER, "")
+    if not (expected and given and hmac.compare_digest(expected.encode(), given.encode())):
+        raise CodedError(status.HTTP_403_FORBIDDEN, "csrf_failed", CSRF_FAILED)
+
+
+def start_session(response: Response, store: AccountStore, account: Account) -> SessionOut:
+    """Logs `account` in: sets the session and CSRF cookies on `response`."""
+    token = store.issue_token(account)
+    secure = config.COOKIE_SECURE
+    response.set_cookie(
+        SESSION_COOKIE,
+        token,
+        max_age=SESSION_TTL_SECONDS,
+        path="/api",
+        secure=secure,
+        httponly=True,
+        samesite="lax",
+    )
+    # Readable by the page on purpose: it copies this into the CSRF_HEADER header.
+    response.set_cookie(
+        CSRF_COOKIE,
+        secrets.token_urlsafe(32),
+        max_age=SESSION_TTL_SECONDS,
+        path="/",
+        secure=secure,
+        httponly=False,
+        samesite="lax",
+    )
+    return SessionOut(token=token, account=account_out(account))
+
+
+def end_session(response: Response) -> None:
+    secure = config.COOKIE_SECURE
+    response.delete_cookie(SESSION_COOKIE, path="/api", secure=secure, httponly=True, samesite="lax")
+    response.delete_cookie(CSRF_COOKIE, path="/", secure=secure, httponly=False, samesite="lax")
+
+
 def account_out(account: Account) -> AccountOut:
     return AccountOut.model_validate(account, from_attributes=True)
 
 
-@router.post("/register", status_code=status.HTTP_201_CREATED)
-def register(body: RegisterIn, store: Annotated[AccountStore, Depends(get_accounts)]) -> SessionOut:
-    """Create an account and log it in."""
+@router.post("/signup", status_code=status.HTTP_201_CREATED)
+@router.post("/register", status_code=status.HTTP_201_CREATED, include_in_schema=False)
+def signup(
+    body: RegisterIn, response: Response, store: Annotated[AccountStore, Depends(get_accounts)]
+) -> SessionOut:
+    """Create an account and log it in. /register is the older name for the same thing."""
     if not body.name.strip():
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Please enter your name.")
     try:
         account = store.create(body.email, body.password, body.name)
     except EmailTaken:
         raise HTTPException(status.HTTP_409_CONFLICT, EMAIL_TAKEN) from None
-    return SessionOut(token=store.issue_token(account), account=account_out(account))
+    return start_session(response, store, account)
 
 
 def too_many_attempts(retry_after: int) -> CodedError:
@@ -124,6 +212,7 @@ def too_many_attempts(retry_after: int) -> CodedError:
 def login(
     body: LoginIn,
     request: Request,
+    response: Response,
     store: Annotated[AccountStore, Depends(get_accounts)],
     limiter: Annotated[LoginLimiter, Depends(get_login_limiter)],
 ) -> SessionOut:
@@ -138,7 +227,25 @@ def login(
         limiter.record_failure(body.email, ip)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, WRONG_CREDENTIALS) from None
     limiter.record_success(body.email, ip)
-    return SessionOut(token=store.issue_token(account), account=account_out(account))
+    return start_session(response, store, account)
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(
+    request: Request,
+    response: Response,
+    store: Annotated[AccountStore, Depends(get_accounts)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> None:
+    """Log out: the session is revoked and its cookies cleared. Fine to call when logged out."""
+    token = bearer_token(authorization)
+    if token is None:
+        token = request.cookies.get(SESSION_COOKIE, "").strip() or None
+        if token is not None:
+            check_csrf(request)
+    if token:
+        store.revoke_token(token)
+    end_session(response)
 
 
 @router.get("/me")
