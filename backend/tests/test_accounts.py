@@ -222,7 +222,7 @@ def test_sessions_expire(tmp_path):
     store = AccountStore(tmp_path, fernet)
     account = store.create(EMAIL, PASSWORD, "Jane")
     expired = fernet.encrypt_at_time(
-        b"session:" + account.id.encode(), int(time.time()) - SESSION_TTL_SECONDS - 1
+        b"session:" + account.id.encode() + b":" + b"0" * 32, int(time.time()) - SESSION_TTL_SECONDS - 1
     ).decode()
 
     assert store.account_from_token(store.issue_token(account)).id == account.id
