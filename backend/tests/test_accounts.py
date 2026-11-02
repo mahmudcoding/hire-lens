@@ -27,14 +27,15 @@ def register(client, email=EMAIL, password=PASSWORD, name="Jane Doe"):
     return response.json()
 
 
-def bearer(token):
-    return {"Authorization": f"Bearer {token}"}
+def csrf(client):
+    """The CSRF header a state-changing request with the session cookie needs (DP-62)."""
+    return {"X-CSRF-Token": client.cookies["hirelens_csrf"]}
 
 
 def test_registering_creates_an_account_and_logs_it_in(client):
     body = register(client)
 
-    assert body["token"]
+    assert "token" not in body
     account = body["account"]
     assert account["email"] == EMAIL
     assert account["name"] == "Jane Doe"
@@ -43,7 +44,7 @@ def test_registering_creates_an_account_and_logs_it_in(client):
     assert account["history_id"] is None
     assert "password" not in account and "password_hash" not in account
 
-    me = client.get("/api/auth/me", headers=bearer(body["token"]))
+    me = client.get("/api/auth/me")
     assert me.status_code == 200
     assert me.json() == account
 
@@ -67,7 +68,7 @@ def test_logging_in_returns_the_same_account(client):
 
     assert response.status_code == 200
     assert response.json()["account"]["id"] == created["id"]
-    assert client.get("/api/auth/me", headers=bearer(response.json()["token"])).status_code == 200
+    assert client.get("/api/auth/me").status_code == 200
 
 
 def test_a_wrong_password_or_unknown_email_is_refused_the_same_way(client):
@@ -82,63 +83,61 @@ def test_a_wrong_password_or_unknown_email_is_refused_the_same_way(client):
 
 def test_the_profile_needs_a_valid_session(client):
     no_token = client.get("/api/auth/me")
-    bad_token = client.get("/api/auth/me", headers=bearer("not-a-token"))
-    wrong_scheme = client.get("/api/auth/me", headers={"Authorization": "Basic abc"})
+    client.cookies.set("hirelens_session", "not-a-token", path="/api")
+    bad_token = client.get("/api/auth/me")
 
     assert no_token.status_code == 401
     assert no_token.json()["detail"] == LOGIN_REQUIRED
-    assert no_token.headers["WWW-Authenticate"] == "Bearer"
     assert bad_token.status_code == 401
     assert bad_token.json()["detail"] == SESSION_EXPIRED
-    assert wrong_scheme.status_code == 401
 
 
 def test_the_profile_can_be_edited_a_field_at_a_time(client):
-    token = register(client)["token"]
+    register(client)
 
     response = client.put(
         "/api/auth/me",
         json={"target_role": " Data analyst ", "location": "Tashkent"},
-        headers=bearer(token),
+        headers=csrf(client),
     )
     assert response.status_code == 200
     assert response.json()["target_role"] == "Data analyst"
     assert response.json()["location"] == "Tashkent"
     assert response.json()["name"] == "Jane Doe"
 
-    response = client.put("/api/auth/me", json={"name": "Jane A. Doe"}, headers=bearer(token))
+    response = client.put("/api/auth/me", json={"name": "Jane A. Doe"}, headers=csrf(client))
     assert response.json()["name"] == "Jane A. Doe"
     assert response.json()["target_role"] == "Data analyst"
 
-    me = client.get("/api/auth/me", headers=bearer(token)).json()
+    me = client.get("/api/auth/me").json()
     assert me["name"] == "Jane A. Doe"
     assert me["location"] == "Tashkent"
 
 
 def test_the_name_cannot_be_blanked(client):
-    token = register(client)["token"]
+    register(client)
 
-    response = client.put("/api/auth/me", json={"name": "   "}, headers=bearer(token))
+    response = client.put("/api/auth/me", json={"name": "   "}, headers=csrf(client))
 
     assert response.status_code == 422
-    assert client.get("/api/auth/me", headers=bearer(token)).json()["name"] == "Jane Doe"
+    assert client.get("/api/auth/me").json()["name"] == "Jane Doe"
 
 
 def test_the_results_history_is_remembered_on_the_account(client):
-    token = register(client)["token"]
+    register(client)
     history_id = "0" * 32
 
-    response = client.put("/api/auth/me", json={"history_id": history_id}, headers=bearer(token))
+    response = client.put("/api/auth/me", json={"history_id": history_id}, headers=csrf(client))
     assert response.status_code == 200
     assert response.json()["history_id"] == history_id
 
-    rejected = client.put("/api/auth/me", json={"history_id": "../etc"}, headers=bearer(token))
+    rejected = client.put("/api/auth/me", json={"history_id": "../etc"}, headers=csrf(client))
     assert rejected.status_code == 422
 
     login = client.post("/api/auth/login", json={"email": EMAIL, "password": PASSWORD})
     assert login.json()["account"]["history_id"] == history_id
 
-    cleared = client.put("/api/auth/me", json={"history_id": None}, headers=bearer(token))
+    cleared = client.put("/api/auth/me", json={"history_id": None}, headers=csrf(client))
     assert cleared.status_code == 200
     assert cleared.json()["history_id"] is None
 

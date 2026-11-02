@@ -15,16 +15,14 @@ the cookies, but it can't read them, so it can't copy the value into the
 header. Endpoints get this by depending on current_account; requests that
 don't use the session, such as an anonymous upload, have nothing to forge.
 
-For now the token is also returned in the body and accepted as
-`Authorization: Bearer <token>`, which the frontend still uses until it
-moves to the cookie.
+The token itself is never in a response body, so the page can't leak it.
 """
 
 import hmac
 import secrets
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app import config
@@ -72,7 +70,6 @@ class AccountOut(BaseModel):
 
 
 class SessionOut(BaseModel):
-    token: str
     account: AccountOut
 
 
@@ -101,39 +98,20 @@ class ProfileIn(BaseModel):
 
 
 def current_account(
-    request: Request,
-    store: Annotated[AccountStore, Depends(get_accounts)],
-    authorization: Annotated[str | None, Header()] = None,
+    request: Request, store: Annotated[AccountStore, Depends(get_accounts)]
 ) -> Account:
-    """The account behind the request's bearer token or session cookie, or a 401.
+    """The account behind the request's session cookie, or a 401.
 
-    A state-changing request that uses the cookie also needs the CSRF header,
-    or gets a 403.
+    A state-changing request also needs the CSRF header, or gets a 403.
     """
-    token = bearer_token(authorization)
-    if token is None:
-        token = request.cookies.get(SESSION_COOKIE, "").strip() or None
-        if token is not None:
-            check_csrf(request)
+    token = request.cookies.get(SESSION_COOKIE, "").strip()
     if not token:
-        raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED, LOGIN_REQUIRED, headers={"WWW-Authenticate": "Bearer"}
-        )
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, LOGIN_REQUIRED)
+    check_csrf(request)
     try:
         return store.account_from_token(token)
     except InvalidSession:
-        raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED, SESSION_EXPIRED, headers={"WWW-Authenticate": "Bearer"}
-        ) from None
-
-
-def bearer_token(authorization: str | None) -> str | None:
-    """The token in an `Authorization: Bearer` header. Another site can't make
-    the browser add that header, so a request using it needs no CSRF check."""
-    scheme, _, token = (authorization or "").partition(" ")
-    if scheme.lower() == "bearer" and token.strip():
-        return token.strip()
-    return None
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, SESSION_EXPIRED) from None
 
 
 def check_csrf(request: Request) -> None:
@@ -169,7 +147,7 @@ def start_session(response: Response, store: AccountStore, account: Account) -> 
         httponly=False,
         samesite="lax",
     )
-    return SessionOut(token=token, account=account_out(account))
+    return SessionOut(account=account_out(account))
 
 
 def end_session(response: Response) -> None:
@@ -235,15 +213,11 @@ def logout(
     request: Request,
     response: Response,
     store: Annotated[AccountStore, Depends(get_accounts)],
-    authorization: Annotated[str | None, Header()] = None,
 ) -> None:
     """Log out: the session is revoked and its cookies cleared. Fine to call when logged out."""
-    token = bearer_token(authorization)
-    if token is None:
-        token = request.cookies.get(SESSION_COOKIE, "").strip() or None
-        if token is not None:
-            check_csrf(request)
+    token = request.cookies.get(SESSION_COOKIE, "").strip()
     if token:
+        check_csrf(request)
         store.revoke_token(token)
     end_session(response)
 

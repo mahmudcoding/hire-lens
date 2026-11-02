@@ -4,8 +4,13 @@ import {
   getAtsScore,
   getHiringChance,
   getHistory,
+  getAccount,
   getResumeText,
+  login,
+  logout,
   matchKeywords,
+  register,
+  updateProfile,
   recordResults,
   uploadResume,
 } from './api.ts'
@@ -367,5 +372,77 @@ describe('clearHistory', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
 
     await expect(clearHistory('h1')).rejects.toThrow("Couldn't reach the server.")
+  })
+})
+
+describe('accounts', () => {
+  const account = {
+    id: 'acc1',
+    email: 'jane@example.com',
+    name: 'Jane Doe',
+    target_role: '',
+    location: '',
+    history_id: null,
+    created_at: '2026-10-29T09:30:00+00:00',
+  }
+
+  beforeEach(() => {
+    document.cookie = 'hirelens_csrf=csrf-value; path=/'
+  })
+
+  afterEach(() => {
+    document.cookie = 'hirelens_csrf=; max-age=0; path=/'
+    vi.unstubAllGlobals()
+  })
+
+  it('signs up and logs in without any token, since the session is a cookie', async () => {
+    const fetchMock = stubFetch(201, { account })
+
+    await expect(register('jane@example.com', 'correct horse', 'Jane Doe')).resolves.toEqual({ account })
+    await login('jane@example.com', 'correct horse')
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(['/api/auth/signup', '/api/auth/login'])
+  })
+
+  it('reads the account with the cookie alone', async () => {
+    const fetchMock = stubFetch(200, account)
+
+    await expect(getAccount()).resolves.toEqual(account)
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/me', { signal: undefined })
+  })
+
+  it('sends the CSRF token when changing the profile', async () => {
+    const fetchMock = stubFetch(200, { ...account, location: 'Tashkent' })
+
+    await updateProfile({ location: 'Tashkent' })
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/me', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': 'csrf-value' },
+      body: JSON.stringify({ location: 'Tashkent' }),
+    })
+  })
+
+  it('logs out on the server with the CSRF token', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(logout()).resolves.toBeUndefined()
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/logout', {
+      method: 'POST',
+      headers: { 'X-CSRF-Token': 'csrf-value' },
+    })
+  })
+
+  it("rejects with the server's explanation when logging out is refused", async () => {
+    stubFetch(403, { detail: 'Your session could not be confirmed.', code: 'csrf_failed' })
+
+    await expect(logout()).rejects.toThrow('Your session could not be confirmed.')
+  })
+
+  it('rejects with a connection message when logging out fails to send', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+
+    await expect(logout()).rejects.toThrow("Couldn't reach the server.")
   })
 })

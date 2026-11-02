@@ -74,6 +74,16 @@ function ProfileForm({ account }: { account: Account }) {
     }
   }
 
+  async function handleLogout() {
+    try {
+      await logout()
+    } catch (caught) {
+      setState({
+        error: caught instanceof Error ? caught.message : "We couldn't log you out. Please try again.",
+      })
+    }
+  }
+
   return (
     <form
       className="mt-8 grid gap-4 rounded-[var(--radius)] border border-border bg-surface p-6"
@@ -117,7 +127,7 @@ function ProfileForm({ account }: { account: Account }) {
             Saved.
           </p>
         )}
-        <Button type="button" variant="secondary" className="ml-auto font-semibold" onPress={logout}>
+        <Button type="button" variant="secondary" className="ml-auto font-semibold" onPress={handleLogout}>
           Log out
         </Button>
       </div>

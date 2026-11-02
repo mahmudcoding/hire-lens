@@ -2,8 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, getAccount, updateProfile, type Account } from './api.ts'
-import { readToken, saveToken } from './auth.ts'
+import { ApiError, getAccount, logout, updateProfile, type Account } from './api.ts'
 import { AuthProvider } from './AuthProvider.tsx'
 import { readHistoryId, saveHistoryId } from './historyId.ts'
 import { ProfilePage } from './ProfilePage.tsx'
@@ -14,6 +13,7 @@ vi.mock('./api.ts', async (importOriginal) => ({
   register: vi.fn(),
   getAccount: vi.fn(),
   updateProfile: vi.fn(),
+  logout: vi.fn(),
 }))
 
 const jane: Account = {
@@ -39,11 +39,15 @@ function renderPage() {
 describe('ProfilePage', () => {
   beforeEach(() => {
     localStorage.clear()
+    // The readable CSRF cookie the API sets next to the httpOnly session cookie.
+    document.cookie = 'hirelens_csrf=csrf-value; path=/'
     vi.mocked(getAccount).mockReset()
     vi.mocked(updateProfile).mockReset()
+    vi.mocked(logout).mockReset()
   })
 
   it('asks a visitor to log in', () => {
+    document.cookie = 'hirelens_csrf=; max-age=0; path=/'
     renderPage()
 
     expect(screen.getByRole('heading', { level: 1, name: 'Your profile' })).toBeInTheDocument()
@@ -54,7 +58,6 @@ describe('ProfilePage', () => {
 
   it('shows the details of the logged-in candidate and saves the edited ones', async () => {
     const user = userEvent.setup()
-    saveToken('tok')
     vi.mocked(getAccount).mockResolvedValue(jane)
     vi.mocked(updateProfile).mockResolvedValue({
       ...jane,
@@ -73,7 +76,7 @@ describe('ProfilePage', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent('Saved.')
-    expect(updateProfile).toHaveBeenCalledWith('tok', {
+    expect(updateProfile).toHaveBeenCalledWith({
       name: 'Jane Doe',
       target_role: 'Data analyst',
       location: 'Tashkent',
@@ -83,7 +86,6 @@ describe('ProfilePage', () => {
 
   it('shows the reason when saving fails', async () => {
     const user = userEvent.setup()
-    saveToken('tok')
     vi.mocked(getAccount).mockResolvedValue(jane)
     vi.mocked(updateProfile).mockRejectedValue(new ApiError('Please enter your name.', 422))
     renderPage()
@@ -94,17 +96,31 @@ describe('ProfilePage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Please enter your name.')
   })
 
-  it('logs out and leaves nothing behind in the browser', async () => {
+  it('logs out on the server and leaves nothing behind in the browser', async () => {
     const user = userEvent.setup()
-    saveToken('tok')
     saveHistoryId('b'.repeat(32))
     vi.mocked(getAccount).mockResolvedValue(jane)
+    vi.mocked(logout).mockResolvedValue()
     renderPage()
 
     await user.click(await screen.findByRole('button', { name: 'Log out' }))
 
-    expect(screen.getByRole('heading', { name: 'You are not logged in' })).toBeInTheDocument()
-    expect(readToken()).toBeNull()
+    expect(await screen.findByRole('heading', { name: 'You are not logged in' })).toBeInTheDocument()
+    expect(logout).toHaveBeenCalledOnce()
     expect(readHistoryId()).toBeNull()
+  })
+
+  it('stays logged in and says why when logging out fails', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getAccount).mockResolvedValue(jane)
+    vi.mocked(logout).mockRejectedValue(
+      new ApiError("Couldn't reach the server. Check your connection and try again."),
+    )
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Log out' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't reach the server.")
+    expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument()
   })
 })
