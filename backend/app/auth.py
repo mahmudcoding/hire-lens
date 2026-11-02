@@ -7,7 +7,7 @@ token: tokens are stateless and expire on their own (see accounts.py).
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.accounts import (
@@ -18,6 +18,8 @@ from app.accounts import (
     WrongCredentials,
     get_accounts,
 )
+from app.errors import CodedError
+from app.login_limits import LoginLimiter, get_login_limiter, too_many_attempts_message
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -107,13 +109,35 @@ def register(body: RegisterIn, store: Annotated[AccountStore, Depends(get_accoun
     return SessionOut(token=store.issue_token(account), account=account_out(account))
 
 
+def too_many_attempts(retry_after: int) -> CodedError:
+    error = CodedError(
+        status.HTTP_429_TOO_MANY_REQUESTS,
+        "too_many_attempts",
+        too_many_attempts_message(retry_after),
+        retry_after=retry_after,
+    )
+    error.headers = {"Retry-After": str(retry_after)}
+    return error
+
+
 @router.post("/login")
-def login(body: LoginIn, store: Annotated[AccountStore, Depends(get_accounts)]) -> SessionOut:
-    """Log in to an existing account."""
+def login(
+    body: LoginIn,
+    request: Request,
+    store: Annotated[AccountStore, Depends(get_accounts)],
+    limiter: Annotated[LoginLimiter, Depends(get_login_limiter)],
+) -> SessionOut:
+    """Log in to an existing account. Too many failed attempts get a 429 (see login_limits.py)."""
+    ip = request.client.host if request.client else "unknown"
+    retry_after = limiter.retry_after(body.email, ip)
+    if retry_after:
+        raise too_many_attempts(retry_after)
     try:
         account = store.authenticate(body.email, body.password)
     except WrongCredentials:
+        limiter.record_failure(body.email, ip)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, WRONG_CREDENTIALS) from None
+    limiter.record_success(body.email, ip)
     return SessionOut(token=store.issue_token(account), account=account_out(account))
 
 
