@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, getAccount, login, register, type Account, type Session } from './api.ts'
-import { readToken, saveToken } from './auth.ts'
 import { AuthProvider } from './AuthProvider.tsx'
 import { readHistoryId } from './historyId.ts'
 import { LoginPage } from './LoginPage.tsx'
@@ -25,7 +24,7 @@ const jane: Account = {
   history_id: 'a'.repeat(32),
   created_at: '2026-10-29T09:30:00+00:00',
 }
-const session: Session = { token: 'tok', account: jane }
+const session: Session = { account: jane }
 
 function renderPage(path = '/login') {
   return render(
@@ -40,9 +39,15 @@ function renderPage(path = '/login') {
   )
 }
 
+function setCsrfCookie() {
+  document.cookie = 'hirelens_csrf=csrf-value; path=/'
+}
+
 describe('LoginPage', () => {
   beforeEach(() => {
     localStorage.clear()
+    document.cookie = 'hirelens_csrf=; max-age=0; path=/'
+
     vi.mocked(login).mockReset()
     vi.mocked(register).mockReset()
     vi.mocked(getAccount).mockReset()
@@ -60,7 +65,8 @@ describe('LoginPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Profile page' })).toBeInTheDocument()
     expect(login).toHaveBeenCalledWith('jane@example.com', 'correct horse')
-    expect(readToken()).toBe('tok')
+    // The session itself is in an httpOnly cookie; nothing about it goes into storage.
+    expect(localStorage.getItem('hirelens.token')).toBeNull()
     expect(readHistoryId()).toBe(jane.history_id)
   })
 
@@ -74,7 +80,6 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: 'Log in' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Wrong email or password.')
-    expect(readToken()).toBeNull()
     expect(screen.getByRole('button', { name: 'Log in' })).toBeEnabled()
   })
 
@@ -94,21 +99,50 @@ describe('LoginPage', () => {
     expect(register).toHaveBeenCalledWith('jane@example.com', 'correct horse', 'Jane Doe')
   })
 
-  it('skips the form when a saved session is still valid', async () => {
-    saveToken('tok')
+  it('shows the wait when there were too many failed attempts', async () => {
+    const user = userEvent.setup()
+    vi.mocked(login).mockRejectedValue(
+      new ApiError('Too many failed login attempts. Please wait 15 minutes and try again.', 429),
+    )
+    renderPage()
+
+    await user.type(screen.getByLabelText('Email'), 'jane@example.com')
+    await user.type(screen.getByLabelText('Password'), 'correct horse')
+    await user.click(screen.getByRole('button', { name: 'Log in' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Too many failed login attempts. Please wait 15 minutes and try again.',
+    )
+  })
+
+  it('skips the form when the session cookie is still valid', async () => {
+    setCsrfCookie()
     vi.mocked(getAccount).mockResolvedValue(jane)
     renderPage()
 
     expect(await screen.findByRole('heading', { name: 'Profile page' })).toBeInTheDocument()
-    expect(getAccount).toHaveBeenCalledWith('tok', expect.any(AbortSignal))
+    expect(getAccount).toHaveBeenCalledWith(expect.any(AbortSignal))
   })
 
-  it('forgets a saved session the server no longer accepts', async () => {
-    saveToken('stale')
+  it('shows the form when the server no longer accepts the session', async () => {
+    setCsrfCookie()
     vi.mocked(getAccount).mockRejectedValue(new ApiError('Your session has expired.', 401))
     renderPage()
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Welcome back' })).toBeInTheDocument()
-    await vi.waitFor(() => expect(readToken()).toBeNull())
+  })
+
+  it('does not ask the server about a session when there is none', async () => {
+    renderPage()
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Welcome back' })).toBeInTheDocument()
+    expect(getAccount).not.toHaveBeenCalled()
+  })
+
+  it('forgets a token kept in storage by an older version of the page', () => {
+    localStorage.setItem('hirelens.token', 'old')
+    renderPage()
+
+    expect(localStorage.getItem('hirelens.token')).toBeNull()
   })
 })

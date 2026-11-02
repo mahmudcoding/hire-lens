@@ -1,35 +1,26 @@
 /**
- * Who is logged in (FR-11). The session token lives in localStorage, like the
- * history ID, and is sent with every account request. Storage can be
- * unavailable (a private window, blocked site data), so every access is
- * guarded: without it the candidate is simply logged out on the next visit.
+ * Who is logged in (FR-11). The session lives in an httpOnly cookie that the
+ * page can't read (DP-62); the readable CSRF cookie next to it tells the page
+ * whether there is a session worth checking when it loads.
  */
 import { createContext, useContext } from 'react'
 import type { Account, ProfileChanges } from './api.ts'
+import { readCsrfToken } from './csrf.ts'
 
-const TOKEN_KEY = 'hirelens.token'
+// Where the session token was kept before it moved to a cookie.
+const LEGACY_TOKEN_KEY = 'hirelens.token'
 
-export function readToken(): string | null {
-  try {
-    return localStorage.getItem(TOKEN_KEY)
-  } catch {
-    return null
-  }
+/** Whether the browser may have a session: true once a CSRF cookie is set. */
+export function hasSession(): boolean {
+  return readCsrfToken() !== null
 }
 
-export function saveToken(token: string): void {
+/** Removes a session token kept in localStorage by an older version of the page. */
+export function forgetLegacyToken(): void {
   try {
-    localStorage.setItem(TOKEN_KEY, token)
+    localStorage.removeItem(LEGACY_TOKEN_KEY)
   } catch {
-    // Nothing to do: see above.
-  }
-}
-
-export function forgetToken(): void {
-  try {
-    localStorage.removeItem(TOKEN_KEY)
-  } catch {
-    // Nothing to do: see above.
+    // Storage can be unavailable (a private window, blocked site data): nothing to remove then.
   }
 }
 
@@ -40,7 +31,7 @@ export type Auth = {
   checking: boolean
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, name: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
   updateProfile: (changes: ProfileChanges) => Promise<void>
 }
 
@@ -52,7 +43,7 @@ export const AuthContext = createContext<Auth>({
   checking: false,
   login: loggedOut,
   register: loggedOut,
-  logout: () => {},
+  logout: () => Promise.resolve(),
   updateProfile: loggedOut,
 })
 

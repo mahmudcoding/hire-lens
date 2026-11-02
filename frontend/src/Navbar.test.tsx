@@ -59,7 +59,7 @@ describe('Navbar', () => {
             checking: false,
             login: () => Promise.resolve(),
             register: () => Promise.resolve(),
-            logout: () => {},
+            logout: () => Promise.resolve(),
             updateProfile: () => Promise.resolve(),
           }}
         >

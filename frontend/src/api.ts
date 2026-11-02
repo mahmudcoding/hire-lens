@@ -1,3 +1,5 @@
+import { csrfHeaders } from './csrf.ts'
+
 export type UploadedResume = {
   id: string
   filename: string
@@ -147,9 +149,8 @@ export type Account = {
   created_at: string
 }
 
+/** A login or sign-up. The session itself is in an httpOnly cookie the page never sees (DP-62). */
 export type Session = {
-  /** Sent as `Authorization: Bearer` on later requests. */
-  token: string
   account: Account
 }
 
@@ -334,7 +335,7 @@ export function getHistory(historyId: string, signal?: AbortSignal): Promise<Ana
 
 /** Creates an account and logs it in (FR-11). */
 export function register(email: string, password: string, name: string): Promise<Session> {
-  return requestJson('/api/auth/register', "We couldn't create your account. Please try again.", {
+  return requestJson('/api/auth/signup', "We couldn't create your account. Please try again.", {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password, name }),
@@ -350,19 +351,32 @@ export function login(email: string, password: string): Promise<Session> {
   })
 }
 
-/** Fetches the account behind a session token. Fails with status 401 once it has expired. */
-export function getAccount(token: string, signal?: AbortSignal): Promise<Account> {
+/** Ends the session on the server and clears its cookies. */
+export async function logout(): Promise<void> {
+  let response: Response
+  try {
+    response = await fetch('/api/auth/logout', { method: 'POST', headers: csrfHeaders() })
+  } catch {
+    throw new ApiError(CONNECTION_PROBLEM)
+  }
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => null)
+    throw new ApiError(errorMessage(body, "We couldn't log you out. Please try again."), response.status)
+  }
+}
+
+/** Fetches the logged-in account. Fails with status 401 when there is no valid session. */
+export function getAccount(signal?: AbortSignal): Promise<Account> {
   return requestJson('/api/auth/me', "We couldn't check your session. Please try again.", {
-    headers: { Authorization: `Bearer ${token}` },
     signal,
   })
 }
 
 /** Changes the logged-in candidate's profile and returns the whole account. */
-export function updateProfile(token: string, changes: ProfileChanges): Promise<Account> {
+export function updateProfile(changes: ProfileChanges): Promise<Account> {
   return requestJson('/api/auth/me', "We couldn't save your profile. Please try again.", {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
     body: JSON.stringify(changes),
   })
 }
