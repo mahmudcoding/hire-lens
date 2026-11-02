@@ -2,11 +2,16 @@ import time
 
 from cryptography.fernet import Fernet
 
+import hashlib
+import json
+import secrets
+
 from app.accounts import (
     SESSION_TTL_SECONDS,
     AccountStore,
     check_password,
     hash_password,
+    needs_rehash,
 )
 from app.auth import EMAIL_TAKEN, LOGIN_REQUIRED, SESSION_EXPIRED, WRONG_CREDENTIALS
 
@@ -162,6 +167,54 @@ def test_passwords_are_salted_and_checked_in_constant_shape():
     assert check_password(PASSWORD, first) and check_password(PASSWORD, second)
     assert not check_password("wrong", first)
     assert not check_password(PASSWORD, "garbage")
+
+
+def test_passwords_are_hashed_with_argon2id():
+    password_hash = hash_password(PASSWORD)
+
+    assert password_hash.startswith("$argon2id$")
+    assert not needs_rehash(password_hash)
+
+
+def scrypt_hash(password):
+    """A hash the way accounts made before DP-62 stored it."""
+    salt = secrets.token_bytes(16)
+    digest = hashlib.scrypt(password.encode(), salt=salt, n=2**14, r=8, p=1)
+    return f"scrypt${2**14}${salt.hex()}${digest.hex()}"
+
+
+def test_older_scrypt_hashes_still_work():
+    old = scrypt_hash(PASSWORD)
+
+    assert check_password(PASSWORD, old)
+    assert not check_password("wrong", old)
+    assert needs_rehash(old)
+
+
+def test_logging_in_upgrades_an_older_hash_to_argon2id(tmp_path):
+    fernet = Fernet(Fernet.generate_key())
+    store = AccountStore(tmp_path, fernet)
+    account = store.create(EMAIL, PASSWORD, "Jane")
+    # Put the account back the way it was saved before DP-62.
+    accounts = json.loads(fernet.decrypt((tmp_path / "accounts.json").read_bytes()))
+    accounts[0]["password_hash"] = scrypt_hash(PASSWORD)
+    (tmp_path / "accounts.json").write_bytes(fernet.encrypt(json.dumps(accounts).encode()))
+
+    assert store.authenticate(EMAIL, PASSWORD).id == account.id
+
+    upgraded = store.get(account.id).password_hash
+    assert upgraded.startswith("$argon2id$")
+    assert check_password(PASSWORD, upgraded)
+    assert store.authenticate(EMAIL, PASSWORD).id == account.id
+
+
+def test_the_password_is_never_returned(client):
+    body = register(client)
+    login = client.post("/api/auth/login", json={"email": EMAIL, "password": PASSWORD})
+
+    for response_text in (json.dumps(body), login.text):
+        assert PASSWORD not in response_text
+        assert "argon2" not in response_text
 
 
 def test_sessions_expire(tmp_path):

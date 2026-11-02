@@ -7,7 +7,8 @@ on another browser brings their previous results along.
 
 All accounts live in one JSON file, encrypted at rest with the same Fernet
 key as the resumes (NFR-01). Passwords are never stored, only a salted
-scrypt hash of each. Sessions are stateless: a session token is the account
+argon2id hash of each (DP-62). Accounts made before that have a scrypt hash,
+which is still checked and replaced with an argon2id one at the next login. Sessions are stateless: a session token is the account
 ID encrypted with the same key, and Fernet's own timestamp expires it after
 SESSION_TTL_SECONDS, so there is no session list to keep or clean up.
 """
@@ -16,12 +17,13 @@ import hashlib
 import hmac
 import json
 import os
-import secrets
 import uuid
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
+from argon2 import PasswordHasher
+from argon2.exceptions import InvalidHashError, VerificationError
 from cryptography.fernet import Fernet, InvalidToken
 
 from app.config import ACCOUNTS_DIR, get_fernet
@@ -29,9 +31,12 @@ from app.config import ACCOUNTS_DIR, get_fernet
 # A week: long enough not to nag, short enough that a lost laptop isn't a lost account.
 SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
 
-# scrypt with these parameters uses about 16 MB and takes a few tens of
-# milliseconds per hash: slow enough to make guessing expensive, fast enough
-# for logging in.
+# argon2id with the library's defaults (RFC 9106's low-memory profile: 64 MB,
+# 3 passes) takes a few tens of milliseconds per hash: slow enough to make
+# guessing expensive, fast enough for logging in.
+_hasher = PasswordHasher()
+
+# The parameters of the scrypt hashes made before DP-62, needed to check them.
 _SCRYPT_N = 2**14
 _SCRYPT_R = 8
 _SCRYPT_P = 1
@@ -74,12 +79,31 @@ class Account:
 
 
 def hash_password(password: str) -> str:
-    salt = secrets.token_bytes(16)
-    digest = hashlib.scrypt(password.encode(), salt=salt, n=_SCRYPT_N, r=_SCRYPT_R, p=_SCRYPT_P)
-    return f"scrypt${_SCRYPT_N}${salt.hex()}${digest.hex()}"
+    """A salted argon2id hash of `password`, with its parameters, as one string."""
+    return _hasher.hash(password)
 
 
 def check_password(password: str, password_hash: str) -> bool:
+    """Whether `password` matches `password_hash`, argon2id or an older scrypt one."""
+    if password_hash.startswith("scrypt$"):
+        return _check_scrypt(password, password_hash)
+    try:
+        return _hasher.verify(password_hash, password)
+    except (VerificationError, InvalidHashError):
+        return False
+
+
+def needs_rehash(password_hash: str) -> bool:
+    """Whether a hash should be replaced: it is scrypt, or argon2id with older parameters."""
+    if password_hash.startswith("scrypt$"):
+        return True
+    try:
+        return _hasher.check_needs_rehash(password_hash)
+    except InvalidHashError:
+        return True
+
+
+def _check_scrypt(password: str, password_hash: str) -> bool:
     try:
         algorithm, n, salt_hex, digest_hex = password_hash.split("$")
         if algorithm != "scrypt":
@@ -123,11 +147,18 @@ class AccountStore:
     def authenticate(self, email: str, password: str) -> Account:
         global _dummy_hash
         email = normalize_email(email)
-        for account in self._read().values():
+        accounts = self._read()
+        for account in accounts.values():
             if account.email == email:
-                if check_password(password, account.password_hash):
-                    return account
-                raise WrongCredentials(email)
+                if not check_password(password, account.password_hash):
+                    raise WrongCredentials(email)
+                if needs_rehash(account.password_hash):
+                    # The password is known right now, so this is the one
+                    # moment an old hash can be upgraded.
+                    account = replace(account, password_hash=hash_password(password))
+                    accounts[account.id] = account
+                    self._write(accounts)
+                return account
         if _dummy_hash is None:
             _dummy_hash = hash_password("not a real password")
         check_password(password, _dummy_hash)
