@@ -81,7 +81,7 @@ The bar at the top of every page links to four pages, plus the login page:
 - **Check** (`/check`): paste a job description, upload a resume and read the results.
 - **History** (`/history`): lists the results of every resume checked, newest first, compares the latest with the one before, and has a button to clear them all. Logged in, it is the account's history on every device; logged out, it is this browser's.
 - **Profile** (`/profile`): the candidate's name, email, target role and location, and the Log out button. A visitor who is not logged in is pointed to the login page instead.
-- **Log in** (`/login`): log in, or create an account with an email, a password and a name.
+- **Log in** (`/login`): log in, or create an account with an email, a password and a name. When Google login is set up, it also has a **Continue with Google** button, and it explains any Google login that failed.
 
 ## Design system
 
@@ -140,7 +140,7 @@ The first Google login creates an account, which has no password. If an account 
 
 A failed callback never ends in an error page: the browser goes back to `/login?google_error=<code>`, where `code` is `access_denied` (Cancel was pressed on Google's page), `invalid_state` (the login wasn't started here, took longer than 10 minutes or was already used), `exchange_failed`, `invalid_token`, `email_not_verified`, `linked_to_other_google`, `google_refused`, `google_unavailable` or `not_configured`.
 
-To set it up, create an OAuth client ID of type "Web application" in the Google Cloud console, add `http://localhost:5173/api/auth/google/callback` (and the deployed site's callback) as an authorized redirect URI, and set `HIRELENS_GOOGLE_CLIENT_ID` and `HIRELENS_GOOGLE_CLIENT_SECRET`. Behind a proxy, also set `HIRELENS_GOOGLE_REDIRECT_URI` to the exact registered callback. Without the ID and secret, Google login is off. The details are in `backend/app/google_oauth.py` and `backend/app/google_login.py`.
+To set it up, create an OAuth client ID of type "Web application" in the Google Cloud console, add `http://localhost:5173/api/auth/google/callback` (and the deployed site's callback) as an authorized redirect URI, and set `HIRELENS_GOOGLE_CLIENT_ID` and `HIRELENS_GOOGLE_CLIENT_SECRET`. Behind a proxy, also set `HIRELENS_GOOGLE_REDIRECT_URI` to the exact registered callback. Without the ID and secret, Google login is off and the login page leaves out its button. The login page shows a plain message for each error code (`frontend/src/LoginPage.tsx`). The details are in `backend/app/google_oauth.py` and `backend/app/google_login.py`.
 
 ## The database
 

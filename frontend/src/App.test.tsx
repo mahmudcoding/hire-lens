@@ -31,6 +31,8 @@ vi.mock('./api.ts', () => ({
   register: vi.fn(),
   getAccount: vi.fn(),
   updateProfile: vi.fn(),
+  getGoogleLoginStatus: vi.fn().mockResolvedValue({ enabled: false }),
+  GOOGLE_LOGIN_URL: '/api/auth/google/start',
 }))
 
 const stored: UploadedResume = {

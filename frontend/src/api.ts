@@ -365,6 +365,21 @@ export async function logout(): Promise<void> {
   }
 }
 
+export type GoogleLoginStatus = {
+  /** Whether this server has Google login set up (DP-63). */
+  enabled: boolean
+}
+
+/** Where the browser goes to log in with Google; the API sends it on to Google. */
+export const GOOGLE_LOGIN_URL = '/api/auth/google/start'
+
+/** Asks whether "Continue with Google" is available. */
+export function getGoogleLoginStatus(signal?: AbortSignal): Promise<GoogleLoginStatus> {
+  return requestJson('/api/auth/google', "We couldn't check whether Google login is available.", {
+    signal,
+  })
+}
+
 /** Fetches the logged-in account. Fails with status 401 when there is no valid session. */
 export function getAccount(signal?: AbortSignal): Promise<Account> {
   return requestJson('/api/auth/me', "We couldn't check your session. Please try again.", {
