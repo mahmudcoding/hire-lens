@@ -54,6 +54,10 @@ COOKIE_SECURE = os.environ.get("HIRELENS_COOKIE_SECURE", "true").lower() != "fal
 # redirect URI. Without both values the "Continue with Google" button is off.
 GOOGLE_CLIENT_ID = os.environ.get("HIRELENS_GOOGLE_CLIENT_ID", "").strip()
 GOOGLE_CLIENT_SECRET = os.environ.get("HIRELENS_GOOGLE_CLIENT_SECRET", "").strip()
+# The callback URL registered with Google. Without it, it is worked out from
+# each request, which is right for local dev but not behind a proxy that
+# changes the address or the scheme, so a deployment should set it.
+GOOGLE_REDIRECT_URI = os.environ.get("HIRELENS_GOOGLE_REDIRECT_URI", "").strip()
 
 
 @lru_cache
