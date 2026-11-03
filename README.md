@@ -132,6 +132,16 @@ Failed logins are limited (DP-62): after 5 failed attempts for one email from on
 
 Passwords are stored only as a salted argon2id hash and are never logged or returned; accounts made before argon2id was used have a scrypt hash, which still works and is replaced with an argon2id one at the next login. Accounts are one file in `HIRELENS_ACCOUNTS_DIR` (default `backend/storage/accounts`), encrypted with the same key as the resumes (NFR-01). A session token is the account ID and a random session ID encrypted with that key, and it expires after 7 days; logged-out session IDs are kept, encrypted, until then. Without `HIRELENS_ENCRYPTION_KEY` set, a restart of the API generates a new key, which makes the accounts and sessions saved before it unreadable, so set one before a demo. The details are in `backend/app/accounts.py` and `backend/app/auth.py`.
 
+## Logging in with Google
+
+A candidate can also log in with their Google account (DP-63), using OAuth 2.0's authorization-code flow with PKCE. `GET /api/auth/google/start` sends the browser to Google's consent page. The state and the PKCE code verifier wait in an encrypted, httpOnly cookie for at most 10 minutes. Google then sends the browser back to `GET /api/auth/google/callback`, which checks the state, exchanges the code for an ID token with the verifier and the client secret, and logs the candidate in with the same session cookie as an email login before sending them to the profile page. `GET /api/auth/google` says whether Google login is set up.
+
+The first Google login creates an account, which has no password. If an account with the same email already exists, Google's account is linked to it instead, but only if Google has verified the email; an unverified email is refused. After that the Google account is recognised by its Google ID, even if its email changes.
+
+A failed callback never ends in an error page: the browser goes back to `/login?google_error=<code>`, where `code` is `access_denied` (Cancel was pressed on Google's page), `invalid_state` (the login wasn't started here, took longer than 10 minutes or was already used), `exchange_failed`, `invalid_token`, `email_not_verified`, `linked_to_other_google`, `google_refused`, `google_unavailable` or `not_configured`.
+
+To set it up, create an OAuth client ID of type "Web application" in the Google Cloud console, add `http://localhost:5173/api/auth/google/callback` (and the deployed site's callback) as an authorized redirect URI, and set `HIRELENS_GOOGLE_CLIENT_ID` and `HIRELENS_GOOGLE_CLIENT_SECRET`. Behind a proxy, also set `HIRELENS_GOOGLE_REDIRECT_URI` to the exact registered callback. Without the ID and secret, Google login is off. The details are in `backend/app/google_oauth.py` and `backend/app/google_login.py`.
+
 ## The database
 
 The API has a database (DP-61) for accounts and, later, saved resumes. It is reached through [SQLAlchemy](https://www.sqlalchemy.org/), and its connection string comes from `HIRELENS_DATABASE_URL`. Without it, local development uses a SQLite file, `hirelens.db` in the storage folder (`backend/storage/` by default), so there is nothing to install. In production, point it at Postgres, for example `postgresql+psycopg://hirelens:password@host/hirelens` (add the `psycopg` driver to the backend for that).

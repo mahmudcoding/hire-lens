@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 
-from app import analyses, auth, config, histories, resumes
+from app import analyses, auth, config, google_login, histories, resumes
 from app.errors import add_error_handler, error_response
 
 # Room for the multipart form around the file itself: boundaries, headers and
@@ -43,6 +43,7 @@ def create_app() -> FastAPI:
     app.include_router(analyses.router)
     app.include_router(histories.router)
     app.include_router(auth.router)
+    app.include_router(google_login.router)
 
     @app.get("/api/health")
     def health() -> dict[str, str]:
