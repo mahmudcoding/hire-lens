@@ -5,6 +5,7 @@ import {
   getHiringChance,
   getHistory,
   getAccount,
+  getGoogleLoginStatus,
   getResumeText,
   login,
   logout,
@@ -444,5 +445,24 @@ describe('accounts', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
 
     await expect(logout()).rejects.toThrow("Couldn't reach the server.")
+  })
+})
+
+describe('getGoogleLoginStatus', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('says whether Google login is set up', async () => {
+    const fetchMock = stubFetch(200, { enabled: true })
+
+    await expect(getGoogleLoginStatus()).resolves.toEqual({ enabled: true })
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/google', { signal: undefined })
+  })
+
+  it('rejects with a connection message when the request fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+
+    await expect(getGoogleLoginStatus()).rejects.toThrow("Couldn't reach the server.")
   })
 })

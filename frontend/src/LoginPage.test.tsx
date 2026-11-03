@@ -1,10 +1,19 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, getAccount, login, register, type Account, type Session } from './api.ts'
+import {
+  ApiError,
+  getAccount,
+  getGoogleLoginStatus,
+  login,
+  register,
+  type Account,
+  type Session,
+} from './api.ts'
 import { AuthProvider } from './AuthProvider.tsx'
 import { readHistoryId } from './historyId.ts'
+import { GOOGLE_ERRORS } from './googleErrors.ts'
 import { LoginPage } from './LoginPage.tsx'
 
 vi.mock('./api.ts', async (importOriginal) => ({
@@ -12,6 +21,7 @@ vi.mock('./api.ts', async (importOriginal) => ({
   login: vi.fn(),
   register: vi.fn(),
   getAccount: vi.fn(),
+  getGoogleLoginStatus: vi.fn(),
   updateProfile: vi.fn(),
 }))
 
@@ -51,6 +61,8 @@ describe('LoginPage', () => {
     vi.mocked(login).mockReset()
     vi.mocked(register).mockReset()
     vi.mocked(getAccount).mockReset()
+    vi.mocked(getGoogleLoginStatus).mockReset()
+    vi.mocked(getGoogleLoginStatus).mockResolvedValue({ enabled: false })
   })
 
   it('logs in, keeps the session and the account history, and opens the profile', async () => {
@@ -144,5 +156,67 @@ describe('LoginPage', () => {
     renderPage()
 
     expect(localStorage.getItem('hirelens.token')).toBeNull()
+  })
+
+  describe('Continue with Google', () => {
+    it('links to the API that starts the Google login when it is set up', async () => {
+      vi.mocked(getGoogleLoginStatus).mockResolvedValue({ enabled: true })
+      renderPage()
+
+      const link = await screen.findByRole('link', { name: 'Continue with Google' })
+      expect(link).toHaveAttribute('href', '/api/auth/google/start')
+      expect(link).toHaveClass('button', 'font-semibold')
+    })
+
+    it('leaves the button out when the server has no Google login', async () => {
+      renderPage()
+
+      await waitFor(() => expect(getGoogleLoginStatus).toHaveBeenCalled())
+      expect(screen.queryByRole('link', { name: 'Continue with Google' })).not.toBeInTheDocument()
+    })
+
+    it('leaves the button out when the server cannot be asked', async () => {
+      vi.mocked(getGoogleLoginStatus).mockRejectedValue(new ApiError('offline'))
+      renderPage()
+
+      await waitFor(() => expect(getGoogleLoginStatus).toHaveBeenCalled())
+      expect(screen.queryByRole('link', { name: 'Continue with Google' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+
+    it.each(Object.entries(GOOGLE_ERRORS))(
+      'explains a failed Google login (%s) instead of crashing',
+      async (code, message) => {
+        renderPage(`/login?google_error=${code}`)
+
+        expect(await screen.findByRole('alert')).toHaveTextContent(message)
+        // The form still works, so there is another way in.
+        expect(screen.getByRole('button', { name: 'Log in' })).toBeEnabled()
+      },
+    )
+
+    it('explains a cancelled consent in plain words', async () => {
+      renderPage('/login?google_error=access_denied')
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Google login was cancelled.')
+    })
+
+    it('has a general message for a code it does not know', async () => {
+      renderPage('/login?google_error=something_new')
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Google login did not work. Please try again.',
+      )
+    })
+
+    it('clears the Google error when switching to sign up', async () => {
+      const user = userEvent.setup()
+      renderPage('/login?google_error=invalid_state')
+      expect(await screen.findByRole('alert')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Create an account' }))
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
   })
 })

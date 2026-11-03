@@ -1,7 +1,9 @@
 import { Button, Input, Label, TextField } from '@heroui/react'
 import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
+import { getGoogleLoginStatus, GOOGLE_LOGIN_URL } from './api.ts'
 import { useAuth } from './auth.ts'
+import { googleErrorMessage } from './googleErrors.ts'
 
 type Mode = 'login' | 'register'
 
@@ -15,17 +17,33 @@ const switchLink =
 export function LoginPage() {
   const { account, login, register } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [mode, setMode] = useState<Mode>('login')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(() =>
+    googleErrorMessage(searchParams.get('google_error')),
+  )
+  const [googleEnabled, setGoogleEnabled] = useState(false)
 
   // Already logged in, or just did: the profile is the place to be.
   useEffect(() => {
     if (account) navigate('/profile', { replace: true })
   }, [account, navigate])
+
+  // Offered only when the server has Google login set up.
+  useEffect(() => {
+    const controller = new AbortController()
+    getGoogleLoginStatus(controller.signal).then(
+      (status) => setGoogleEnabled(status.enabled),
+      () => {
+        // Can't tell: leave the button out rather than offer one that may not work.
+      },
+    )
+    return () => controller.abort()
+  }, [])
 
   function switchMode(next: Mode) {
     setMode(next)
@@ -137,6 +155,18 @@ export function LoginPage() {
             )}
           </p>
         </div>
+
+        {googleEnabled && (
+          <div className="grid gap-4 border-t border-border pt-4">
+            <p className="eyebrow m-0">Or</p>
+            <a
+              href={GOOGLE_LOGIN_URL}
+              className="button button--outline justify-self-start font-semibold"
+            >
+              Continue with Google
+            </a>
+          </div>
+        )}
       </form>
     </>
   )
