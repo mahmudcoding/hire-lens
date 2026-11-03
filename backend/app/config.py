@@ -48,6 +48,13 @@ FORCE_HTTPS = os.environ.get("HIRELENS_FORCE_HTTPS", "false").lower() == "true"
 # and never in a deployment.
 COOKIE_SECURE = os.environ.get("HIRELENS_COOKIE_SECURE", "true").lower() != "false"
 
+# Logging in with Google (DP-63). Create an OAuth client of type "Web
+# application" in the Google Cloud console and add the API's callback,
+# /api/auth/google/callback on the site's own address, as an authorized
+# redirect URI. Without both values the "Continue with Google" button is off.
+GOOGLE_CLIENT_ID = os.environ.get("HIRELENS_GOOGLE_CLIENT_ID", "").strip()
+GOOGLE_CLIENT_SECRET = os.environ.get("HIRELENS_GOOGLE_CLIENT_SECRET", "").strip()
+
 
 @lru_cache
 def get_fernet() -> Fernet:

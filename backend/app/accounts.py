@@ -13,6 +13,12 @@ encrypted with the same key, and Fernet's own timestamp expires it after
 SESSION_TTL_SECONDS, so there is no list of sessions to keep. Logging out
 (DP-62) records the session ID as revoked until the token would have expired
 anyway, so a copy of a logged-out token is refused too.
+
+An account can also be reached by logging in with Google (DP-63). The first
+Google login makes an account with no password, or links the Google account
+to an existing one with the same email, but only if Google has verified that
+email: otherwise anyone could make a Google account with someone else's
+address and take over their HireLens account.
 """
 
 import hashlib
@@ -31,6 +37,7 @@ from argon2.exceptions import InvalidHashError, VerificationError
 from cryptography.fernet import Fernet, InvalidToken
 
 from app.config import ACCOUNTS_DIR, get_fernet
+from app.google_oauth import GoogleIdentity, GoogleLoginError
 
 # A week: long enough not to nag, short enough that a lost laptop isn't a lost account.
 SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
@@ -80,6 +87,9 @@ class Account:
     location: str
     history_id: str | None
     created_at: str  # ISO 8601, UTC
+    # Google's ID for the Google account linked to this one (DP-63), if any.
+    # Last and optional, so accounts saved before it existed still load.
+    google_id: str | None = None
 
 
 def hash_password(password: str) -> str:
@@ -167,6 +177,46 @@ class AccountStore:
             _dummy_hash = hash_password("not a real password")
         check_password(password, _dummy_hash)
         raise WrongCredentials(email)
+
+    def login_with_google(self, identity: GoogleIdentity) -> Account:
+        """The account for a Google login: the one already linked to that Google
+        account, else the one with its verified email (now linked), else a new one.
+
+        Raises GoogleLoginError("email_not_verified") if Google hasn't verified the
+        email, and GoogleLoginError("linked_to_other_google") if the account with
+        that email is already linked to a different Google account.
+        """
+        accounts = self._read()
+        for account in accounts.values():
+            if account.google_id == identity.subject:
+                return account
+        if not identity.email_verified:
+            raise GoogleLoginError("email_not_verified")
+        email = normalize_email(identity.email)
+        for account in accounts.values():
+            if account.email == email:
+                if account.google_id is not None:
+                    raise GoogleLoginError("linked_to_other_google")
+                account = replace(account, google_id=identity.subject)
+                accounts[account.id] = account
+                self._write(accounts)
+                return account
+        account = Account(
+            id=uuid.uuid4().hex,
+            email=email,
+            # No password: this account logs in only through Google, and an
+            # empty hash never matches any password.
+            password_hash="",
+            name=identity.name or email.partition("@")[0],
+            target_role="",
+            location="",
+            history_id=None,
+            created_at=datetime.now(UTC).isoformat(),
+            google_id=identity.subject,
+        )
+        accounts[account.id] = account
+        self._write(accounts)
+        return account
 
     def get(self, account_id: str) -> Account:
         try:
