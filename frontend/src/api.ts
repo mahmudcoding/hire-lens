@@ -88,6 +88,34 @@ export type Suggestions = {
   suggestions: Suggestion[]
 }
 
+export type AnalysisStep = {
+  name: string
+  title: string
+  status: 'pending' | 'running' | 'done' | 'failed' | 'cancelled'
+  duration_ms: number | null
+}
+
+export type AnalysisErrorInfo = {
+  /** "analysis_timeout", "resume_not_found", "analysis_failed", or an unreadable-resume code (DP-53). */
+  code: string
+  message: string
+}
+
+/**
+ * How far the whole analysis (NFR-05) has got. `result` is left out here: the
+ * results page reads each part itself, so only status, steps and error
+ * matter for the progress view (DP-58/DP-59).
+ */
+export type AnalysisJob = {
+  id: string
+  resume_id: string
+  status: 'running' | 'done' | 'failed' | 'timed_out'
+  /** 0 to 100. */
+  progress: number
+  steps: AnalysisStep[]
+  error: AnalysisErrorInfo | null
+}
+
 export type HistoryProblem = {
   code: string
   title: string
@@ -165,10 +193,13 @@ export type ProfileChanges = {
 export class ApiError extends Error {
   /** The HTTP status of the response, when there was one. */
   status?: number
+  /** The machine-readable error code, when the response had one (DP-53, DP-59). */
+  code?: string
 
-  constructor(message: string, status?: number) {
+  constructor(message: string, status?: number, code?: string) {
     super(message)
     this.status = status
+    this.code = code
   }
 }
 
@@ -302,6 +333,34 @@ export function getSuggestions(
 }
 
 /**
+ * Starts the whole analysis of an uploaded resume in the background (NFR-05)
+ * and returns its job. Used only to drive the progress view and catch an
+ * unreadable file early; the results page still reads each part itself with
+ * the functions above.
+ */
+export function startAnalysis(id: string, signal?: AbortSignal): Promise<AnalysisJob> {
+  return requestJson(
+    `/api/resumes/${encodeURIComponent(id)}/analysis`,
+    'Something went wrong while starting the analysis. Please try again.',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_description: '' }),
+      signal,
+    },
+  )
+}
+
+/** Fetches how far an analysis job has got. */
+export function getAnalysisJob(jobId: string, signal?: AbortSignal): Promise<AnalysisJob> {
+  return requestJson(
+    `/api/analyses/${encodeURIComponent(jobId)}`,
+    'Something went wrong while checking the analysis. Please try again.',
+    { signal },
+  )
+}
+
+/**
  * Keeps an uploaded resume's results in the candidate's anonymous history,
  * so a later resume can be compared with them. Without a history ID a new
  * history is started; the response has its ID.
@@ -423,7 +482,7 @@ async function requestJson<T>(url: string, fallback: string, init: RequestInit):
 
   const body: unknown = await response.json().catch(() => null)
   if (!response.ok) {
-    throw new ApiError(errorMessage(body, fallback), response.status)
+    throw new ApiError(errorMessage(body, fallback), response.status, errorCode(body))
   }
   return body as T
 }
@@ -433,4 +492,11 @@ function errorMessage(body: unknown, fallback: string): string {
     return body.detail
   }
   return fallback
+}
+
+function errorCode(body: unknown): string | undefined {
+  if (body && typeof body === 'object' && 'code' in body && typeof body.code === 'string') {
+    return body.code
+  }
+  return undefined
 }

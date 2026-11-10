@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import type { UploadedResume } from './api.ts'
+import { AnalysisProgress } from './AnalysisProgress.tsx'
 import { AtsScore } from './AtsScore.tsx'
 import { ConsentNotice } from './ConsentNotice.tsx'
 import { ExtractedText } from './ExtractedText.tsx'
@@ -28,6 +30,11 @@ export function HomePage({
   consentGiven,
   onConsentChange,
 }: Props) {
+  // The results below are only safe to show once the analysis job has
+  // confirmed the resume is readable (DP-58, DP-59); reset whenever the
+  // resume changes, so a new upload doesn't show the old one's results.
+  const [resultsReady, setResultsReady] = useState(false)
+
   return (
     <>
       <header className="app-header">
@@ -38,6 +45,14 @@ export function HomePage({
       <ConsentNotice checked={consentGiven} onChange={onConsentChange} />
       <ResumeUpload consentGiven={consentGiven} onResumeChange={onResumeChange} />
       {resume && (
+        <AnalysisProgress
+          key={`progress-${resume.id}`}
+          resume={resume}
+          onUploadAgain={() => onResumeChange(null)}
+          onReadyChange={setResultsReady}
+        />
+      )}
+      {resume && resultsReady && (
         <>
           <AtsScore key={`score-${resume.id}`} resume={resume} />
           <KeywordMatch

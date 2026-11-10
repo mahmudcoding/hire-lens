@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  getAnalysisJob,
   getAtsScore,
   getResumeSections,
   getHiringChance,
@@ -11,6 +12,7 @@ import {
   getSuggestions,
   matchKeywords,
   recordResults,
+  startAnalysis,
   uploadResume,
   type UploadedResume,
 } from './api.ts'
@@ -18,6 +20,8 @@ import App from './App.tsx'
 
 vi.mock('./api.ts', () => ({
   uploadResume: vi.fn(),
+  startAnalysis: vi.fn(),
+  getAnalysisJob: vi.fn(),
   getAtsScore: vi.fn(),
   getResumeSections: vi.fn(),
   getResumeText: vi.fn(),
@@ -55,6 +59,22 @@ function renderApp(path = '/') {
 describe('App', () => {
   beforeEach(() => {
     vi.mocked(uploadResume).mockResolvedValue(stored)
+    vi.mocked(startAnalysis).mockResolvedValue({
+      id: 'job1',
+      resume_id: 'abc',
+      status: 'done',
+      progress: 100,
+      steps: [],
+      error: null,
+    })
+    vi.mocked(getAnalysisJob).mockResolvedValue({
+      id: 'job1',
+      resume_id: 'abc',
+      status: 'done',
+      progress: 100,
+      steps: [],
+      error: null,
+    })
     vi.mocked(getAtsScore).mockResolvedValue({
       id: 'abc',
       score: 90,
