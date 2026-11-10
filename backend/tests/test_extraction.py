@@ -7,7 +7,7 @@ from docx.oxml import parse_xml
 from fpdf import FPDF
 from PIL import Image
 
-from app.extraction import UnreadableResume, extract_text
+from app.extraction import MIN_WORDS, UnreadableResume, check_not_too_short, extract_text
 
 
 def make_pdf(path, pages, user_password=None):
@@ -73,27 +73,30 @@ def test_every_page_of_a_pdf_is_read_in_order(tmp_path):
     assert text.index("Page one: Experience") < text.index("Page two: Education")
 
 
-def test_a_scanned_pdf_gets_a_clear_message(tmp_path):
+def test_a_scanned_pdf_is_reported_as_image_only(tmp_path):
     path = tmp_path / "scan.pdf"
     Image.new("RGB", (600, 800), "white").save(path, "PDF")
 
-    with pytest.raises(UnreadableResume, match="probably a scanned image"):
+    with pytest.raises(UnreadableResume, match="probably a scanned image") as info:
         extract_text(path, "pdf")
+    assert info.value.code == "image_only"
 
 
-def test_a_damaged_pdf_gets_a_clear_message(tmp_path):
+def test_a_damaged_pdf_is_reported_as_corrupted(tmp_path):
     path = tmp_path / "broken.pdf"
     path.write_bytes(b"%PDF-1.7\nthis is not really a pdf")
 
-    with pytest.raises(UnreadableResume, match="may be damaged or password-protected"):
+    with pytest.raises(UnreadableResume, match="may be damaged") as info:
         extract_text(path, "pdf")
+    assert info.value.code == "corrupted"
 
 
-def test_a_password_protected_pdf_gets_a_clear_message(tmp_path):
+def test_a_password_protected_pdf_is_reported_as_encrypted(tmp_path):
     path = make_pdf(tmp_path / "locked.pdf", ["Jane Doe"], user_password="secret")
 
-    with pytest.raises(UnreadableResume, match="may be damaged or password-protected"):
+    with pytest.raises(UnreadableResume, match="password-protected") as info:
         extract_text(path, "pdf")
+    assert info.value.code == "encrypted"
 
 
 def test_docx_paragraphs_and_tables_are_read_in_order(tmp_path):
@@ -140,19 +143,35 @@ def test_docx_header_is_left_out_like_an_ats_would(tmp_path):
     assert text == "Experience"
 
 
-def test_a_docx_without_text_gets_a_clear_message(tmp_path):
+def test_a_docx_without_text_is_reported_as_image_only(tmp_path):
     path = make_docx(tmp_path / "empty.docx", lambda document: None)
 
-    with pytest.raises(UnreadableResume, match="couldn't find any text"):
+    with pytest.raises(UnreadableResume, match="couldn't find any text") as info:
         extract_text(path, "docx")
+    assert info.value.code == "image_only"
 
 
-def test_a_damaged_docx_gets_a_clear_message(tmp_path):
+def test_a_damaged_docx_is_reported_as_corrupted(tmp_path):
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
         archive.writestr("word/document.xml", "not xml")
     path = tmp_path / "broken.docx"
     path.write_bytes(buffer.getvalue())
 
-    with pytest.raises(UnreadableResume, match="may be damaged"):
+    with pytest.raises(UnreadableResume, match="may be damaged") as info:
         extract_text(path, "docx")
+    assert info.value.code == "corrupted"
+
+
+def test_text_under_the_word_minimum_is_reported_as_too_short():
+    text = " ".join(["word"] * (MIN_WORDS - 1))
+
+    with pytest.raises(UnreadableResume, match="very little text") as info:
+        check_not_too_short(text)
+    assert info.value.code == "too_short"
+
+
+def test_text_at_the_word_minimum_is_accepted():
+    text = " ".join(["word"] * MIN_WORDS)
+
+    check_not_too_short(text)  # does not raise

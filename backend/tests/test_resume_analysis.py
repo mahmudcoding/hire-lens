@@ -130,14 +130,14 @@ def test_a_5_mb_pdf_is_analyzed_within_30_seconds(client):
     assert time.monotonic() - started < 30
 
 
-def test_a_scanned_resume_fails_with_the_unreadable_code(client):
+def test_a_scanned_resume_fails_with_the_image_only_code(client):
     resume_id = upload(client, SCANNED)
 
     job_id = client.post(f"/api/resumes/{resume_id}/analysis", json={}).json()["id"]
     body = wait_for(client, job_id)
 
     assert body["status"] == "failed"
-    assert body["error"]["code"] == "resume_unreadable"
+    assert body["error"]["code"] == "image_only"
     assert body["error"]["message"]
     assert body["steps"][0]["status"] == "failed"
     assert body["result"] is None

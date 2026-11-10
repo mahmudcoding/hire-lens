@@ -46,7 +46,9 @@ class StepOut(BaseModel):
 
 
 class AnalysisErrorOut(BaseModel):
-    # "analysis_timeout", "resume_unreadable", "resume_not_found" or "analysis_failed".
+    # "analysis_timeout", "resume_not_found", "analysis_failed", or one of the
+    # unreadable-resume codes from extraction.py: "image_only", "encrypted",
+    # "corrupted", "too_short" (DP-53).
     code: str
     message: str
 
@@ -207,5 +209,5 @@ def _load(storage: ResumeStorage, stored: StoredResume) -> tuple[bytes, str, str
     try:
         text = extract_text(data, stored.file_type)
     except UnreadableResume as error:
-        raise AnalysisError("resume_unreadable", str(error)) from None
+        raise AnalysisError(error.code, str(error)) from None
     return data, stored.file_type, text

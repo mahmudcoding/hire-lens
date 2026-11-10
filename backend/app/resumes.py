@@ -394,5 +394,5 @@ def _read_resume(resume_id: str, storage: ResumeStorage) -> tuple[StoredResume, 
     try:
         text = extract_text(data, stored.file_type)
     except UnreadableResume as error:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(error)) from None
+        raise CodedError(status.HTTP_422_UNPROCESSABLE_CONTENT, error.code, str(error)) from None
     return stored, data, text
