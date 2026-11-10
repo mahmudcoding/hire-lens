@@ -49,6 +49,12 @@ To check which sections (contact, summary, experience, education, skills) HireLe
 uv run python -m scripts.check_sections ../test-resumes
 ```
 
+To check which experience bullets HireLens flags as weak in the same set (DP-44), run:
+
+```bash
+uv run python -m scripts.check_weak_bullets ../test-resumes
+```
+
 `test-resumes/large/` holds six more resumes of about 1, 3 and 5 MB (PDF and DOCX) for timing the analysis (DP-51); see [How long the analysis takes](#how-long-the-analysis-takes).
 
 ## Consent and privacy
@@ -196,9 +202,26 @@ These numbers are from a development machine, not the deployed app: there isn't 
 
 `POST /api/resumes/{id}/analysis` with an optional `{"job_description": "..."}` starts the whole analysis in the background and answers at once (202) with a job. `GET /api/analyses/{job_id}` then shows how far it has got (NFR-05): a `status` (`running`, `done`, `failed` or `timed_out`), a `progress` from 0 to 100, and four `steps` (parsing, format checks, scoring, suggestions), each `pending`, `running`, `done`, `failed` or `cancelled`, with how long it took. Once the job is `done`, its `result` holds the sections, ATS score, keyword match (only with a job description), hiring chance and suggestions, exactly as the separate endpoints above return them. The resume is read once for all of them, rather than once per request.
 
-An analysis still running after 30 seconds is cancelled and comes back as `timed_out` with the error code `analysis_timeout`. A step that is already running can't be interrupted, but its result is thrown away and no later step starts. A resume with no readable text fails with `resume_unreadable`. Finished jobs are kept in memory for an hour, then forgotten. The details are in `backend/app/analysis_jobs.py` and `backend/app/analyses.py`.
+An analysis still running after 30 seconds is cancelled and comes back as `timed_out` with the error code `analysis_timeout`. A step that is already running can't be interrupted, but its result is thrown away and no later step starts. A resume that can't be read fails with one of the unreadable-resume codes below. Finished jobs are kept in memory for an hour, then forgotten. The details are in `backend/app/analysis_jobs.py` and `backend/app/analyses.py`.
 
 Uploads over 5 MB are turned away with a 413 and a structured error, `{"detail": "The file is larger than 5 MB.", "code": "file_too_large", "max_bytes": 5242880}`; a request that says it is that large is refused before any of it is read. Every error with a `code` also has a `detail` with the message to show.
+
+## Unreadable resumes (NFR-06)
+
+A file that can't be turned into text never reaches scoring. Every endpoint that reads a resume - `/text`, `/sections`, `/format-checks`, `/ats-score`, `/keyword-match`, `/hiring-chance`, `/suggestions`, `/weak-bullets`, `/report`, `/history` and `/analysis` - fails the same way instead: a 422 (or the job's `failed` status for `/analysis`) with one of these codes and a plain-language `detail` saying what to do next:
+
+| Code | When |
+| --- | --- |
+| `image_only` | A scanned or image-only PDF, or a DOCX with no text at all (for example, only a picture) |
+| `encrypted` | A password-protected PDF |
+| `corrupted` | The file can't be opened as a PDF or DOCX at all |
+| `too_short` | Fewer than 50 words once the text is read (implemented and unit-tested in `backend/app/extraction.py`, but not yet wired into the endpoints above - see the note in that file) |
+
+`backend/tests/test_malformed_uploads.py` proves each case end to end - including a 0-byte file, a file renamed to `.pdf` and an oversized file, which are all rejected at upload instead - and that the server keeps answering requests afterwards (DP-54). The details are in `backend/app/extraction.py`.
+
+## How weak bullet points are detected
+
+`GET /api/resumes/{id}/weak-bullets` looks at the experience section's bullets (the job's own title/company/date line is skipped) and flags the ones that read as filler rather than a result (FR-08): no action verb to open the line, no number/percentage/amount showing the result, over about 200 characters, or a vague phrase like "responsible for". A bullet can be flagged for more than one reason; each comes with its own plain-language explanation. Checked against the 20-resume test set (DP-15) with `uv run python -m scripts.check_weak_bullets /path/to/test-resumes` from `backend/`. The details are in `backend/app/bullet_points.py`.
 
 ## Encryption and HTTPS (NFR-01)
 
