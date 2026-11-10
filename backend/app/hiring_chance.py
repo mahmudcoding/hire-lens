@@ -119,9 +119,17 @@ def level_for(percentage: int) -> str:
     return "Low"
 
 
+def has_measurable_result(line: str) -> bool:
+    """Whether a line states a number, percentage or amount - not just a date.
+
+    Also used by app.bullet_points (FR-08) to flag bullets with no result.
+    """
+    return _NUMBER.search(_DATE.sub("", line)) is not None
+
+
 def count_achievements(text: str) -> int:
     """Count the lines that state a measurable result, such as "Cut costs by 20%"."""
-    return sum(1 for line in text.splitlines() if _NUMBER.search(_DATE.sub("", line)))
+    return sum(1 for line in text.splitlines() if has_measurable_result(line))
 
 
 def count_skills(text: str) -> int:

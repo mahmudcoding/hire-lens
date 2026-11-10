@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, sta
 from pydantic import BaseModel, Field
 
 from app.ats_score import MAX_SCORE, calculate_ats_score
+from app.bullet_points import find_weak_bullets
 from app.config import MAX_JOB_DESCRIPTION_LENGTH, MAX_UPLOAD_BYTES
 from app.errors import CodedError
 from app.extraction import UnreadableResume, extract_text
@@ -44,6 +45,18 @@ class ResumeSectionsOut(BaseModel):
     id: str
     sections: list[SectionOut]
     missing: list[str]
+
+
+class WeakBulletOut(BaseModel):
+    text: str
+    # One or more of "no_action_verb", "no_measurable_result", "too_long", "vague".
+    reasons: list[str]
+    explanations: list[str]
+
+
+class ResumeWeakBullets(BaseModel):
+    id: str
+    bullets: list[WeakBulletOut]
 
 
 class FormatProblemOut(BaseModel):
@@ -173,6 +186,23 @@ def get_resume_sections(
             for section in result.sections
         ],
         missing=result.missing,
+    )
+
+
+@router.get("/{resume_id}/weak-bullets")
+def get_resume_weak_bullets(
+    resume_id: str,
+    storage: Annotated[ResumeStorage, Depends(get_storage)],
+) -> ResumeWeakBullets:
+    """Flag the experience section's weak bullets, with a plain-language reason for each (FR-08)."""
+    stored, _data, text = _read_resume(resume_id, storage)
+    weak = find_weak_bullets(detect_sections(text))
+    return ResumeWeakBullets(
+        id=stored.id,
+        bullets=[
+            WeakBulletOut(text=bullet.text, reasons=bullet.reasons, explanations=bullet.explanations)
+            for bullet in weak
+        ],
     )
 
 
